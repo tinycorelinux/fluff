@@ -1,0 +1,12 @@
+[Desktop Entry]
+Encoding=UTF-8
+Name=fluff
+Comment=File Manager
+GenericName=FileMgr
+Exec=fluff
+Icon=fluff
+Terminal=false
+StartupNotify=true
+Type=Application
+Categories=Utility;
+X-FullPathIcon=/usr/local/share/pixmaps/fluff.png

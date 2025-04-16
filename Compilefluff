@@ -1,0 +1,206 @@
+#!/bin/sh
+
+alias cp='busybox cp -a'
+alias cut='busybox cut'
+alias date='busybox date'
+alias du='busybox du'
+alias mkdir='busybox mkdir -p'
+alias rm='busybox rm -rf'
+alias sed='busybox sed'
+alias tar='busybox tar'
+
+PROGRAM="fluff"
+
+STARTDIR="$PWD"
+PACKAGEDIR="$STARTDIR/package"
+PREFIX="/usr/local"
+DESTDIR="$PACKAGEDIR/$PREFIX"
+SRCDIR="src"
+
+OPTIMIZE="-Os -flto"
+SYMBOLS="-g"
+
+TOOLCHAIN="compiletc sstrip submitqc"
+BUILD_DEPS="fltk-1.3-dev"
+PACKAGE_DEPS="fltk-1.3"
+
+GDEBUG="No"
+# Uncomment the next line to compile a version that can be run under gdb.
+#GDEBUG="Debug"
+
+if [ "$GDEBUG" == "Debug" ]
+then
+# -flto gets removed because it interferes with gdb being able to display
+# code listings.
+	OPTIMIZE="-O0 -ggdb"
+fi
+
+
+PROCESSOR_TYPE=`uname -m`
+echo "$PROCESSOR_TYPE detected."
+
+case "$PROCESSOR_TYPE" in
+        i686)
+        CFLAGS="-fuse-linker-plugin -march=i486 -mtune=i686 $OPTIMIZE $SYMBOLS -pipe -Wall -Wextra -fno-plt"
+        CXXFLAGS="-fuse-linker-plugin -march=i486 -mtune=i686 $OPTIMIZE $SYMBOLS -pipe -Wall -Wextra -fno-exceptions -fno-rtti"
+        LDFLAGS="-Wl,-T/usr/local/lib/ldscripts/elf_i386.xbn"
+        ;;
+
+        x86_64)
+        CFLAGS="-fuse-linker-plugin -mtune=generic $OPTIMIZE $SYMBOLS -pipe -Wall -Wextra -fno-plt"
+        CXXFLAGS="-fuse-linker-plugin -mtune=generic $OPTIMIZE $SYMBOLS -pipe -Wall -Wextra -fno-exceptions -fno-rtti"
+        LDFLAGS="-Wl,-T/usr/local/lib/ldscripts/elf_x86_64.xbn"
+        ;;
+
+        armv*)
+        CFLAGS="-march=armv6zk -mtune=arm1176jzf-s -mfpu=vfp $OPTIMIZE $SYMBOLS -pipe -Wall -Wextra"
+        CXXFLAGS="-march=armv6zk -mtune=arm1176jzf-s -mfpu=vfp $OPTIMIZE $SYMBOLS -pipe -Wall -Wextra -fno-exceptions -fno-rtti"
+        LDFLAGS="-Wl,-O1"
+        ;;
+
+        aarch64)
+        CFLAGS="-march=armv8-a+crc -mtune=cortex-a72 $OPTIMIZE $SYMBOLS -pipe -Wall -Wextra"
+        CXXFLAGS="-march=armv8-a+crc -mtune=cortex-a72 $OPTIMIZE $SYMBOLS -pipe -Wall -Wextra -fno-exceptions -fno-rtti"
+        LDFLAGS="-Wl,-O1"
+        ;;
+
+        *)
+        echo "$PROCESSOR_TYPE: Unknown processor type. Please add an entry for it in this script."
+        exit
+        ;;
+esac
+
+# Download packages required for compiling, filter out success messages.
+tce-load -w "$TOOLCHAIN $BUILD_DEPS" 2>&1 | grep -v "already downloaded"
+
+# Install packages required for compiling, filter out success messages.
+tce-load -i "$TOOLCHAIN $BUILD_DEPS" 2>&1 | grep -v "already installed"
+
+cd "$STARTDIR/$SRCDIR"
+
+# Build "$PROGRAM"
+#gcc  -march=i486 -mtune=i686 "$OPTIMIZE" -pipe -Wall -Wextra -c "$PROGRAM".c "$SYMBOLS" 
+gcc $CXXFLAGS -std=c++03 -Wno-unused-parameter -Wno-missing-field-initializers -c "$PROGRAM".cpp
+
+# Link "$PROGRAM"
+#gcc -I. -L. "$PROGRAM".o -o "$PROGRAM" "$SYMBOLS" "$OPTIMIZE" -lX11 -lXfixes -T/usr/local/lib/ldscripts/elf_i386.xbn
+gcc $LDFLAGS "$PROGRAM".o -o "$PROGRAM" -L/usr/lib -lfltk -lfltk_images -lfltk_forms -lpng -lstdc++
+
+size "$PROGRAM".o "$PROGRAM"
+ls -l "$PROGRAM"
+if [ "$GDEBUG" == "No" ]
+then
+	sstrip "$PROGRAM"
+fi
+ls -l "$PROGRAM"
+
+#exit
+
+cd "$STARTDIR"
+
+# Remove output from previous build.
+rm "$PROCESSOR_TYPE"
+rm "$PACKAGEDIR"
+rm *.tcz*
+rm *.gz
+rm *.bfe
+
+# Create the destination directories for packaging.
+mkdir "$PROCESSOR_TYPE"
+mkdir "$DESTDIR/bin"
+mkdir "$DESTDIR/share/applications"
+mkdir "$DESTDIR/share/doc/$PROGRAM"
+mkdir "$DESTDIR/share/pixmaps"
+
+# Copy program files to their final destination.
+cp "$STARTDIR/$SRCDIR/$PROGRAM" "$DESTDIR/bin"
+cp "$STARTDIR/$SRCDIR/$PROGRAM"_"fc.sh" "$DESTDIR/bin"
+cp "$STARTDIR/$SRCDIR/$PROGRAM.desktop" "$DESTDIR/share/applications"
+cp "$STARTDIR/$SRCDIR/$PROGRAM"_"help.htm" "$DESTDIR/share/doc/$PROGRAM"
+cp "$STARTDIR/$SRCDIR/$PROGRAM.gif" "$DESTDIR/share/doc/$PROGRAM"
+cp "$STARTDIR/$SRCDIR/$PROGRAM.png" "$DESTDIR/share/pixmaps"
+
+# Update version number and date in the help file.
+DATE=`date '+%b %d, %Y'`
+VERSION="`grep "#define APP_VER" $STARTDIR/$SRCDIR/fluff.cpp | cut -d' ' -f3 | tr -d '"'`"
+sed -i "s|.*<p>Version.*|<p>Version $VERSION, $DATE</p>|" "$DESTDIR/share/doc/$PROGRAM/$PROGRAM"_"help.htm"
+
+# Create .tcz, .md5,txt, and .list files.
+mksquashfs $PACKAGEDIR $PROGRAM.tcz -noappend -quiet -no-progress
+md5sum $PROGRAM.tcz > $PROGRAM.tcz.md5.txt
+cd "$PACKAGEDIR"
+# Find files including their path starting from the current directory,
+# cut the leading dot, sort it, and save it to the .list file.
+find . -not -type d | cut -c 2- | sort > ../$PROGRAM.tcz.list
+cd "$STARTDIR"
+
+# Create dependency file.
+for EXT in $PACKAGE_DEPS
+do
+	echo "$EXT".tcz >> "$PROGRAM".tcz.dep
+done
+
+# Create .info file
+DATE=`date '+%Y/%m/%d'`
+SIZE="`du -h $PROGRAM.tcz | cut -f1`"
+echo "Title:		$PROGRAM.tcz
+Description:	File Manager
+Version:	$VERSION
+Author:		Michael A. Losh
+Original-site:	http://tinycorelinux.com
+Copying-policy:	GPLv3
+Size:		$SIZE
+Extension_by:	Michael A. Losh
+Tags:		File Manager fm
+Comments:	Full Version including icon and
+		.desktop file, suitable for Tiny Core 3.7 and later.
+		Fluff is a fast, light utility for files.  Fluff uses
+		the FLTK user interface library, which makes it
+		especially efficient on TinyCore Linux. The source code
+		of Fluff is released under the GNU license.  This file
+		manager features a directory tree and file details list;
+		keyboard, menu, and drag-and-drop file manipulations;
+		automatic configurable program associations; trashbin with
+		restore; file renaming; file property editing; and more!
+		Less than 150 KB installed.
+
+
+		Built with:
+		CFLAGS=$CFLAGS
+		CXXFLAGS=$CXXFLAGS
+		LDFLAGS=$LDFLAGS
+
+Change-log:	2011/05/13 (Initial release as extension)
+		2010/05/13 1.0.0
+		2014/03/19 v1.0.7 compiled for corepure64-v5.x (coreplayer2)
+		2020/01/30 v1.0.7 compiled for tc-11.x and fltk-1.3.5 (gnuser)
+		2020/02/07 updated 1.0.7 -> 1.0.8 (gnuser)
+Current:	$DATE $VERSION Reverted previous pointer changes, see fluff.cpp
+" > $PROGRAM.tcz.info
+
+# Check the newly created extension files for errors.
+submitqc --libs 2>&1 > submitqc.txt
+
+# Create archive of the package.
+tar -czf "$PROGRAM".tar.gz "$PROGRAM".tc*
+
+# Create archive of the source package.
+tar -czf "$PROGRAM"-source-"$VERSION".tar.gz --exclude "*.o" ../"$PROGRAM"/"$SRCDIR" ../"$PROGRAM"/Compile"$PROGRAM"
+
+# Tar the package archive and build script. Include processor type as part of archive name.
+tar -czf "$PROGRAM-$PROCESSOR_TYPE".tar.gz --exclude "$PROGRAM-$PROCESSOR_TYPE*" *.tar.gz
+
+# bcrypt the final file with the password  tinycore
+yes tinycore | bcrypt "$PROGRAM-$PROCESSOR_TYPE".tar.gz
+
+# Save copies in the  $PROCESSOR_TYPE  directory in case we want
+# to compile for another architecture.
+cp "$SRCDIR/$PROGRAM" "$PROCESSOR_TYPE"
+cp "$PROGRAM".tc* "$PROCESSOR_TYPE"
+cp *.tar.gz* "$PROCESSOR_TYPE"
+cp submitqc.txt "$PROCESSOR_TYPE"
+
+
+echo "Check $PACKAGEDIR/submitqc.txt for any errors."
+echo "Send $PROGRAM-$PROCESSOR_TYPE.tar.gz.bfe to: tcesubmit@gmail.com"
+echo

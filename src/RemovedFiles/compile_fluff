@@ -1,0 +1,16 @@
+#!/bin/sh
+
+# tce-load -i fltk-1.3-dev Xorg-7.7-dev compiletc
+
+# g++ -march=i486 -mtune=i686 -Os -fno-exceptions -fno-rtti -fpic -L/usr/lib -lfltk -lfltk_images -lfltk_forms -lpng -o fluff fluff.cpp
+
+# error: narrowing conversion
+# Try adding -std=c++03 to your compiler flags or CFLAGS=-Wno-narrowing make
+
+# g++ -march=i486 -mtune=i686 -O0 -ggdb -std=c++03 -fno-exceptions -fno-rtti -fpic -L/usr/lib -lfltk -lfltk_images -lfltk_forms -lpng -o fluff fluff.cpp
+g++ -march=i486 -mtune=i686 -Os -std=c++03 -fno-exceptions -fno-rtti -fpic -L/usr/lib -lfltk -lfltk_images -lfltk_forms -lpng -o fluff fluff.cpp
+
+size fluff.o fluff
+ls -l fluff
+sstrip fluff
+ls -l fluff

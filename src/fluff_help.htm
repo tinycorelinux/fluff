@@ -1,0 +1,655 @@
+<html>
+<title>Fluff Help</title>
+<body>
+<H1>Fluff</H1>
+<img src="fluff.gif">
+<p>Version 1.0.7, June 2012</p>
+<a href="#cmdopts">Command-line options</a><br>
+<a href="#cmds">Button-Bar Commands</a><br>
+<a href="#mmenucmds">Main Menu Commands</a><br>
+<a href="#dmenucmds">Directory Tree Menu Commands</a><br>
+<a href="#fmenucmds">File List Menu Commands</a><br>
+<a href="#keys">Keyboard Shortcuts</a><br>
+<a href="#moving">Moving and Copying Files</a><br>
+<a href="#types">Managing Filetypes and Associations with Programs</a><br>
+<a href="#configs">Special Configuration Options</a><br>
+<a href="#quirks">Quirks and Tricks</a><br>
+
+<H2>Introduction</H2>
+<p>Fluff is a fast, light utility for files.  Fluff uses the FLTK user 
+interface library, which makes it especially efficient on TinyCore Linux.  
+The source code of Fluff is released under the GNU license.  See 
+<a href="http://www.gnu.org/licenses/">http://www.gnu.org/licenses/</a> 
+for more details.
+</p>
+<p>
+CAUTION: Use carefully and at your own risk!  Fluff is distributed in the 
+hope that it will be useful, but WITHOUT ANY WARRANTY; without even the 
+implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+See http://www.gnu.org/licenses/ for more details. Please provide feedback on 
+bugs, quirks, and improvement suggestions so it can be made better. 
+</p>
+<a name="cmdopts"></a>
+<H2>Command-Line Options</H2>
+
+<table>
+    <tr>
+        <td>path </td> 
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td>Initialize browsing to start with the specified path</td>
+    </tr>
+</table>
+
+<a name="cmds"></a>
+<H2>Button Bar Commands and Options</H2>
+<p>
+<b>Quit:</b> Ctrl+Q, Makes Fluff exit</p>
+<p>
+<b>[Action 1]:</b> F3, (Name changes based on selected file type) Launches 
+the first associated program for the current selected file or files.</p>
+<p>
+<b>[Action 2]</b> F4, (Name changes based on selected file type.) Launches 
+the second associated for the current selected file or files.</p>
+<p>
+<b>Props.:</b> F7 or Alt-F6, Opens the File Properties dialog box, showing several details about 
+the file, and allows user to edit the name or permissions.</p>
+<p>
+<b>show all:</b> (checkbox) Determines whether "hidden" files (whose names start with .) 
+will be displayed.</p>
+<p>
+<b>use sudo:</b> (checkbox) causes Fluff to attempt to use sudo in when invoking 
+embedded commands such as delete, copy, move, and changing file ownership and permissions. 
+Success depends on the current user's security parameters.</p>
+<p>
+<b>Copy:</b> Ctrl+C, Make a note of the currently selected files for use with later commands.</p>
+<p>
+<b>Paste:</b> Ctrl+P, If one or more files are already "copied" for pasting, the Paste 
+command will put a copy into the currently selected directory.  If the 
+destination directory is the same as the source directory, a new copy of 
+each file with a modified name will be placed into the same directory.</p>
+<p>
+<b>Trash:</b> Insert key, If no files are selected, just switches view to the configured trash directory. 
+If there are selected files, the user is presented with a choice to move the 
+selected files to the trash directory or just browse it.</p>
+<p>
+<b>Delete:</b> Delete key, Permenently deletes (rm command) files.  Fluff may be configured to 
+confirm file deletion before proceeding.</p>
+<p>
+<b>Home:</b> Home key or Ctrl+H, (Configurable) Shortcut to the user's home directory.  The label and path
+may be configured to a different location by editing the .fluff.conf file.</p>
+<p>
+<b>TCE:</b> Ctrl+E, (Configurable) Shortcut to the user's TCE directory, if defined.  The label and path
+may be configured to a different location by editing the .fluff.conf file.  
+If the label is defined as "TCE" but the TCE drive is not set, 
+Fluff will display a warning message.</p>
+<p>
+<b>A (About):</b> F10, Displays "About" copyright, summary, and license info.</p>
+<p>
+<b>Help:</b> F1, Displays this help file.</p>
+<p>
+<b>Path:</b> Displays the path of the most-recently-selected directory. 
+Drop-down menu allows user to jump back to the 16-most-recently visited 
+unique directories.</p>
+
+<a name="mmenucmds"></a>
+
+<H2>Main Menu Commands</H2>
+<p>
+<b>About:</b> F10, Displays "About" copyright, summary, and license info.</p>
+<p>
+<b>Help:</b> F1, Displays this help file.</p>
+<p>
+<b>Filetypes:</b> Menu-F, Open the "Manage Filetypes" dialog box, which is 
+a where you can add, change, extend, or remove the definitions of filetypes.</p>
+<p>
+<b>Quit:</b> Ctrl+Q, Quit Fluff.</p>
+
+<a name="dmenucmds"></a>
+
+<H2>Directory Tree  Menu Commands</H2>
+<p>
+<b>Open terminal here:</b> Alt+T, Open a terminal (fixed as "aterm" now) 
+window with the current path set to the directory highlighted in the directory  
+tree window.</p>
+<p>
+<b>Create directory:</b> Menu-Y key, Create a new subdirectory under the current 
+directory selected in the directory tree window, using the name supplied by 
+the user in a prompt window. </p>
+<p>
+<b>Paste to here:</b> Ctrl+V, Make a copy of the files and/or subdirectories 
+previously "copied" (remembered) into the directory currently selected or 
+right-clicked in 
+the directory tree window.  If a current directory item would be replaced, 
+prompt the user and allow the user to skip or replace the particular item; or 
+if the user wants, skip or replace all the remaining items in the paste 
+operation.  If the user is pasting files into their source directory, 
+make a copy of each with a modified name.</p>
+<p>
+<b>Copy selected to here:</b> Menu-C key, Make a copy of the files and/or 
+subdirectories currently selected in the file details list window into the 
+directory currently selected or right-clicked in the directory tree window. 
+If items in the current directory would be replaced, 
+prompt the user and allow the user to skip or replace the particular item; or 
+if the user wants, skip or replace all the remaining items in the copy 
+operation.  If the user is copying the same files into their current directory, 
+make a copy of each with a modified name.</p>
+<p>
+<b>Move selected to here:</b> Menu-M key, Move the files and/or 
+subdirectories currently selected in the file details list window into the 
+directory currently selected or right-clicked in the directory tree window. 
+If items in the current directory would be replaced, 
+prompt the user and allow the user to skip or replace the particular item; or 
+if the user wants, skip or replace all the remaining items in the paste 
+operation.</p>
+<p>
+<b>Rename:</b>  F2, Allows user to edit the name directly in the directory 
+tree window.  While editing, the background behind the name will be hightlighted 
+in yellow.  Press the Escape key to abandon the changes, and the Enter key 
+to commit them.</p>
+<p>
+<b>Insert in trash:</b> Insert key, If no directory selected, just switches view 
+to the configured trash directory. 
+If there a selected or right-clicked directory, the user is presented with a 
+choice to move the selected files to the trash directory or just browse it.</p>
+<p>
+<b>Delete:</b> Delete key, Delete selected or right-clicked directory.  
+If the "ConfirmDelete" configuration is set to 1 in the .fluff.conf file, the 
+user will be prompted to confirm the delete operation.</p>
+<p>
+<b>Properties:</b> F7 or Alt-F6, Opens the File Properties dialog box, 
+showing several details about the directory, and (if permissions allow) provides 
+an interface to edit the directory's name, ownership, and permissions.</p>
+<p>
+<b>About:</b> F10, Displays "About" copyright, summary, and license info.</p>
+<p>
+<b>Help:</b> F1, Displays this help file.</p>
+<p>
+<b>Quit:</b> Ctrl+Q, Quit Fluff.</p>
+</p>
+
+<a name="fmenucmds"></a>
+
+<H2>File List Menu Commands</H2>
+<p>
+<b>[Action 1]:</b> F3, (Name changes based on selected file type) Launches 
+the first associated program for the current selected file or files.</p>
+<p>
+<b>[Action 2]</b> F4, (Name changes based on selected file type.) Launches 
+the second associated for the current selected file or files.</p>
+<p>
+<b>Open with...:</b> F8, Open the "Open with" dialog box to allow the user 
+to lauch an associated program for the seleted file(s).  In the dialog 
+box, the user will see all of the associated programs, including the two 
+that are accessible in the button bar and right-click file details menu.  
+From this dialog box, the user may also click on the button "More..." to 
+manage the associated programs, by adding and deleting file to program 
+associations or modifying the association parameters.</p>
+<p>
+<b>Select all:</b> Ctrl+A, Select all the files currently in the file details 
+list window.</p>
+<p>
+<b>Copy:</b> Ctrl+C, Make a note of the currently selected files for use 
+with later commands.</p>
+<p>
+<b>Paste:</b> Ctrl+P, If one or more files are already "copied" for pasting, the Paste 
+command will put a copy into the currently selected directory.  If the 
+destination directory is the same as the source directory, a new copy of 
+each file with a modified name will be placed into the same directory.</p>
+<p>
+<b>Rename:</b>  F2, Allows user to edit the name directly in the file details  
+list window.  While editing, the background behind the name will be hightlighted 
+in yellow.  Press the Escape key to abandon the changes, or the Enter key 
+to commit them.</p>
+<p>
+<b>Insert in trash:</b> Insert key, If no files are selected, just switches view to the configured trash directory. 
+If there are selected files, the user is presented with a choice to move the 
+selected files to the trash directory or just browse it.</p>
+<p>
+<b>Restore from trash:</b> Menu-R, Move the the selected file or files 
+to their original location and name using then old path information encoded 
+in the current filename (~ characters in the current filename correspond to 
+/ characters in the old path)</p>
+<p>
+<b>Delete:</b> Delete key, Delete selected file(s).  If the "ConfirmDelete" 
+configuration is set to 1 in the .fluff.conf file, the user will be prompted to 
+confirm the delete operation.</p>
+<p>
+<b>Open terminal here:</b> Alt+T, Open a terminal (fixed as "aterm" now) 
+window with the current path set to the directory displayed in the file details 
+list window.</p>
+<p>
+<b>Properties:</b> F7 or Alt-F6, Opens the File Properties dialog box, 
+showing several details about the file, and (if permissions allow) provides 
+an interface to edit the file's name, ownership, and permissions.</p>
+<p>
+<b>Help:</b> F1, Displays this help file.</p>
+<p>
+<b>Cancel:</b> Menu-L, Close the file details right-click menu without issuing 
+other commands.</p>
+
+<a name="keys"></a>
+
+<H2>Keyboard Shortcuts</H2>
+<p>
+<table>
+    <tr>
+        <td>F1 </td> 
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td>Open this help document</td>
+    </tr>
+
+    <tr>
+        <td>F2 </td> 
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td>Rename file within list</td>
+    </tr>
+
+    <tr>
+        <td>F3 </td> 
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td>Launch first associated application</td>
+    </tr>
+    <tr>
+        <td>F4 </td> 
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td>Launch second associated application</td>
+    </tr>
+
+    <tr>
+        <td>F5 </td> 
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td>Refresh window conetents</td>
+    </tr>
+
+    <tr>
+        <td>F7 or Alt+Enter </td> 
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td>Show file properties</td>
+    </tr>
+
+    <tr>
+        <td>F8 </td> 
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td>Show "Open With..." Window, also access "Manage Associations"</td>
+    </tr>
+
+    <tr>
+        <td>F10 </td> 
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td>Show "About Fluff" window</td>
+    </tr>
+
+    <tr>
+        <td>Insert </td> 
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td>Insert file(s) or directory in Trashbin</td>
+    </tr>
+
+    <tr>
+        <td>Delete </td> 
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td>Delete file(s) or directory</td>
+    </tr>
+
+    <tr>
+        <td>Alt + T </td> 
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td>Open a terminal window at the current directory</td>
+    </tr>
+
+    <tr>
+        <td>Ctrl + A </td> 
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td>Select all files in current directory</td>
+    </tr>
+
+    <tr>
+        <td>Ctrl + C </td> 
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td>"Copy." Well, really just remember the selected files for Paste later.</td>
+    </tr>
+
+
+    <tr>
+        <td>Ctrl + E </td> 
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td>Jump to TCE or alternate configured directory</td>
+    </tr>
+
+    <tr>
+        <td>Ctrl + H or Home</td> 
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td>Jump to $HOME or alternate configured directory</td>
+    </tr>
+
+    <tr>
+        <td>Ctrl + V </td> 
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td>"Paste." Well, really just duplicate files remembered from "Copy"</td>
+    </tr>
+
+    <tr>
+        <td>Ctrl + Backspace </td> 
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td>Go to parent directory (toward root)</td>
+    </tr>
+
+    <tr>
+        <td>Right Arrow or =/+ key </td> 
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td>Expand current directory</td>
+    </tr>
+
+    <tr>
+        <td>Left Arrow or - key </td> 
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td>Collapse current directory</td>
+    </tr>
+
+    <tr>
+        <td>Down Arrow </td> 
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td>Browse next directory</td>
+    </tr>
+
+    <tr>
+        <td>Up Arrow </td> 
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td>Browse previous directory</td>
+    </tr>
+</table>
+</p>
+
+<a name="moving"></a>
+<H2>Moving and Copying Files</H2>
+<p>
+There are four ways to move or copy files in Fluff:
+<ol>
+<li>Drag-and-Drop: select one or more files in the right-side file list window, 
+then drag the item (or items) to a directory in the left-side tree view; a 
+confirmation dialog will pop up and help the user copy, move, and/or cancel
+ </li>
+ <li>Right-Click: select one or more files in the right-side file list window, 
+move the mouse pointer to the left hand tree view, right-click to pop up 
+the context menu, select "move to here" or "copy to here"; 
+ </li>
+ <li>Copy / Paste: select one or more files in the right-side file list window, 
+click on the "Copy" button or select "Copy" from the right-click context 
+menu, select the destination directory in the left-side tree window, and 
+finally click on the "Paste" button or right-click and select the "Paste" command.
+ </li>
+ <li>Move to Trash / Restore: select one or more files in the right-side 
+ file list window, click on the "Trash" button and confirm "move to trash"; later, 
+ navigate to trash window, select and right-click on item there, then choose 
+ "restore from trash" to a have it return to the location it originally came from. </li>
+</ol>
+</p>
+
+<a name="types"></a>
+<h2>Managing Filetypes and Associations with Programs</h2>
+<p>
+There is an GUI editor for filetype recognition, available through the main 
+right-click menu (right click on the bottom status line or over an inactive 
+part of the upper button bar, then select "Filetypes"), or by clicking on the "Type" 
+button in the File Properties dialog box.    
+We recommend you use this editor to manage the 
+descriptive names for filetypes and the filetype identification hints.  However, 
+filetypes and hints may be edited directly (with care!) in the configuration file 
+.fluff.conf.  Once a file type is known, the associated applications editor may 
+be used to define which external programs can be used to interact with it.
+</p>
+<h4>Managing Filetypes and Hints</h4>
+<p>
+<b>Saving and Undo:</b> In the "Manage File Types and Hints" dialog box, any changes 
+you make only affect a temporary copy.  If you click on the "Undo changes" button before 
+you close the dialog, the temporary copy will be reset to the master copy.  
+However, if you close the dialog box after making changes, the changes will be transferred 
+to the master copy and will immediately affect the file detail list display.  The 
+changes will be made persistent (written to the .fluff.conf configuration 
+file) if and when the Fluff application closes normally.  However, if Fluff is aborted or 
+killed, the changes will not be updated in .fluff.conf and will be lost.
+</p>
+<p>
+<b>Changing a Filetype's Name:</b> In the "Manage File Types and Hints" dialog box, 
+select any filetype identification hint that is for the filetype you want to rename, 
+then simply edit the name in the "Filetype Name" input field.  As you edit, you will see
+selected hint and any other hints for the same filetype automatically update.
+</p>
+<p>
+<b>Modifying a Filetype Identification Hint:</b> In the "Manage File Types 
+and Hints" dialog box, select the filetype identification hint you want 
+to modify.  Below you will see checkboxes for the hint method, and input field  
+for the distinct matching pattern string (the interpretation of which depends 
+on the hint method), and (for header-based hint methods) an input field for 
+byte offset in the file's header for the matching pattern.  Here is how the hint 
+methods work: 
+</p>
+<table>
+    <tr>
+        <td>Header string </td> 
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td>Fluff reads the initial file content, and tries to find the 
+            specific "Matches" string pattern at the specified fixed offset
+            from the start of the file (offset 0 = first byte of the file, 
+            offset 1 is the second byte, etc.)<br></td>
+    </tr>
+
+    <tr>
+        <td>Header bytes </td> 
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td>Fluff reads the initial file content, and tries to find the 
+            specific "match" pattern of bytes at the specified fixed offset
+            from the start of the file (offset 0 = first byte of the file, 
+            offset 1 is the second byte, etc.).  The pattern of bytes 
+            to look for are specied in the "Matches" input field as two-character
+            hexadecimal numbers (e.g. 12 34 AB F3) delimited by spaces. <br></td>
+    </tr>
+
+    <tr>
+        <td>Filename Extension </td> 
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td>Fluff looks at the last n characters of a file's filename for a 
+            match to the n-character string specified in the "Matches" 
+            character pattern.  For this method, the "Offset within file" 
+            field is not relevant and is disabled.<br></td>
+    </tr>
+</table>
+<p>
+Changes to the hint properties will be immediately reflected in 
+the hint list, but not committed to the master copy until the dialog box is 
+closed.
+</p>
+<p>
+<b>Adding a New Hint:</b> In the "Manage File Types and Hints" dialog box, 
+click on the the "Add new hint" button.  A new hint will be added to the list
+with some generic properties, unless you have reached the built-in limit 
+(200 hints).</p>
+<p>
+<b>Removing an existing Hint:</b> In the "Manage File Types and Hints" dialog 
+box, select the hint you want to remove, then click on the the "Remove 
+hint" button.  If you selected the one and only hint for a certain filetype, 
+Fluff will not allow you to remove it, otherwise, you should see the hint disappear.</p>
+<p>
+<b>Adding a New Filetype:</b> In the "Manage File Types and Hints" dialog box, 
+click on the the "Add type" button.  A new hint with generic properties and a 
+generic name will be created and displayed in the interface.  The filetype 
+name and identification hint properies may be adjustusted as described above. 
+The new filetype will be transferred to the master copy and reflected in the 
+file list window when the user closes the dialog box. Note: you may also 
+create a new filetype for a file considered a generic file by using the 
+"Type" button on the File Properties dialog box and supplying a filetype 
+name.</p>
+<p>
+<b>Viewing or Changing the Associated Programs for a Filetype:</b> In the 
+"Manage File Types and Hints" dialog box, click on the "Associated apps..." button.
+The "Manage Associations" dialog box will open.  If invoked from this button, 
+changes in the associations are not transferred to the master copy until 
+the "Manage File Types and Hints" dialog is closed.  </p>
+<p>Note: The generic file 
+type is not listed in the types and hints list since it is default when no 
+specific hint matches.  To add or modify an association for generic files, 
+select any file in the file details list, invoke the right-click menu 
+command "Open with..."  If the selected file is not a generic type, check 
+the "Open with option for generic file" checkbox then click on the "More..."
+button.  Now you may select an association definition to modify or delete, 
+or add a new association.</p>
+
+<h4>Managing Associations</h4>
+<p>
+<b>Saving and Undo:</b> In the "Manage Associations" dialog box, any changes 
+you make only affect a temporary copy.  If you click on the "Undo changes" button before 
+you close the dialog, the temporary copy will be reset to original copy.  
+However, if you close the dialog box after making changes, the changes will be transferred 
+to the original copy.  The 
+changes will be made persistent (written to the .fluff.conf configuration 
+file) if and when the Fluff application closes normally.  However, if Fluff is aborted or 
+killed, the changes will not be updated in .fluff.conf and will be lost.
+</p>
+<p>
+<b>Modifying a Filetype Association with a Program: </b> In the "Manage 
+Associations" dialog box, select the association you want 
+to modify.  Below you will see an input field for the "Action Label", which is 
+used on the button bar and file window's right-click menu; and a command line, 
+which tells Fluff how to run the associated program. In the command line, "%s" will 
+be replaced with a copy of the selected filename or filenames, where each file is 
+surrounded by double-quotes: "file1" "file3" (etc.). Your changes will be 
+updated immediately in the association list.
+</p>
+<p>
+<b>Adding a new Filetype Association with a Program: </b> In the "Manage 
+Associations" dialog box, click on the "Add new" button. You will see a new 
+association defined with generic properties.  Modify  the association you want 
+to modify.  Below you will see an input field for the "Action Label", which is 
+used on the button bar and file window's right-click menu; and a command line, 
+which tells Fluff how to run the associated program.
+</p>
+<p>
+<b>Removing a Filetype Association with a Program: </b> In the "Manage 
+Associations" dialog box, select the association you want 
+to delete.  Click on the "delete" button. You will see the 
+association removed from the list immediately.
+</p>
+<p>
+<b>Changing the Order of Associations: </b> Since the first two associations 
+for a given filetype have a special status, you may want to adjust associations' 
+order.  In the "Manage Associations" dialog box, select the association you want 
+to reprioritize.  Click the "Up" and/or "Down" button to elevate or demote the file(s) 
+priority relative to the others. You will see the changes in the order 
+immediately, but not affect the main window until the dialog boxes are closed.
+</p>
+
+
+<a name="configs"></a>
+<H2>Special Configuration Options</H2>
+<p>Here are a few .fluff.conf settings that are not exposed in the GUI:
+<table>
+    <tr>
+        <td>TrashbinPath </td> 
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td>Directory that Fluff will store items inserted into "trash." 
+        In RAM-resident file managers, setting this to a non-volatile 
+        directory (e.g. /tmp) will mean that the "trash bin" will be 
+        automatically emptied each time the system shuts down.  If you 
+        want a persistent trash bin, configure this to a directory that 
+        is normally saved in non-volatile storage (i.e. /home/tc/.trash).<br>
+        </td>
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+    </tr>
+    <tr>
+        <td>Loc1Path </td> 
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td>Directory that Fluff jumps to if the first jump button is 
+        clicked.  By default, configured to the user's home directory.<br>
+        </td>
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+    </tr>
+    <tr>
+        <td>Loc1Label </td> 
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td>Label text for the first jump button in the button bar.<br>
+        </td>
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+    </tr>
+    <tr>
+        <td>Loc2Path </td> 
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td>Directory that Fluff jumps to if the second jump button is 
+        clicked.  By default, configured to the TinyCore Extensions path.<br>
+        </td>
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+    </tr>
+    <tr>
+        <td>Loc2Label </td> 
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td>Label text for the second jump button in the button bar.<br>
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        </td>
+    </tr>
+    <tr>
+        <td>ConfirmDelete </td> 
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td>Whether Fluff will request user to confirm all delete 
+        operations (1 = yes: confirm delete operations, 0 = don't)<br>
+        </td>
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+    </tr>
+    <tr>
+        <td>AllowUseSudo </td> 
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td>Whether Fluff will display the "use sudo" checkbox in the 
+        button bar, which allows the user to use a "sudo" prefix during 
+        most file operations. (1 = yes: allow user to select sudo, 
+        0 = no: don't allow user to see and use sudo checkbox)<br>
+        </td>
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+    </tr>
+    <tr>
+        <td>FollowLinks </td> 
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td>Whether Fluff recurse into linked directories when counting
+        number of files contained in a certain directory or estimating the 
+        total amount of space required for storing directory's content. 
+        Following links can lead to endless loops that lock up Fluff if 
+        there are circular linkages (as can happen in the /dev filesystem 
+        branch), but can be more accurate if you work with linked directories.<br> 
+        </td>
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+    </tr>
+</table>
+</p>
+<a name="quirks"></a>
+<H2>Quirks and Tricks</H2>
+<p>
+You can expand or collapse sections of the tree view by clicking on the 
+left-side column on the plus (+) or minus(-) characters, or by using the 
+left and right cursor arrow keys.
+</p>
+<p>
+To easily select multiple files, you may "sweep" over right-side file 
+list using the normal left-click-and-drag gesture, but in the non-name 
+columns.  As in several other file managers, you may also shift-click 
+to extend a selection range, or ctrl-click to toggle the selection of 
+individual files.  
+</p>
+<p>Fluff will try to utilize the window manager's color scheme and display 
+something legible for reasonable combinations of foreground 
+and background colors.  However, some combinations of colors will not be 
+usable.  Fluff will utilize the window manager's FLTK window style 
+setting, which can currently be one of "none" (Windows 95 style), "gtk+", 
+or "plastic" (Mac OS Aqua style).</p>
+<p>
+Some filesystes for mountable media such as FAT32 USB memory sticks support
+upper and lower case letters in filenames in a limited way, so the underlying 
+Linux file management commands used by Fluff may not allow you to successfully
+rename a file if the only difference is capitalization.  For 
+example, if you try to rename myfile to MyFile on a USB Stick, it will 
+not work for certain filesystem format types.  However, you 
+may change the name in two steps: myfile --> myfile1, then myfile1 --> MyFile.
+</p>
+<H2>Support</H2>
+<p>Post bug reports and suggestions to the TinyCore Linux Forum<br> 
+(<a href="http://tinycorelinux.com/forum/">http://tinycorelinux.com/forum/</a>).
+</p>
+<p>Michael A. Losh</p>
+</body>
+</html>
