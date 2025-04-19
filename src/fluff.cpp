@@ -1,8 +1,38 @@
 // Fluff  -- A fast, light utility for files 
 // See About_text below for copyright and distribution license
 
-#define APP_VER "1.0.9" // Last update 2022-02-28
-/* Version 1.0.9 updated 2022-02-28 by Rich
+#define APP_VER "1.1.6" // Last update 2025-04-07
+
+/* Version 1.1.6 updated 2025-04-07 by Michael Losh
+ * Fix to reset scroll to first file when revisiting directories
+ * (otherwise, current scroll position may not allow any files to be seen
+ *  after directory changes)
+ * Moved config file location to ~/.config/fluff.conf
+ * 
+
+ * Version 1.1.5 updated 2025-03-29 by Michael Losh
+ * Up, Back, FWD directory location buttons added to toolbar, reworked directory history management
+ * 
+
+ * Version 1.1.4 updated 2025-03-25 by Michael Losh
+ * Don't look for TCE location in /opt/.tce_dir 
+ * Default to /opt for loc2 button if /etc/sysconfig/tcedir TCE symlink is not present
+ * Don't warn for selected files/folders if another process moves/deletes them
+
+ * Version 1.1.3 updated 2025-03-22 by Michael Losh
+ * fixes for improper file list item height (wrong item selected from pointer click)
+
+ * Version 1.1.2 updated 2025-03-02 by Michael Losh
+ * better child window resizing (WIP!)
+ * icon in about and other message boxes
+
+ * Version 1.1.1 updated 2025-03-02 by Michael Losh
+ * fix for redrawing with new window title
+
+ * Version 1.1.0 updated 2025-03-02 by Michael Losh
+ * Updates to build cleanly in FLTK 1.4.x
+
+ * Version 1.0.9 updated 2022-02-28 by Rich
  * Added "-Wimplicit-fallthrough" pragmas to silence warnings.
  * Reversed the following changes:
  * Changed cmd_list_p->data(n, (void*)i); to cmd_list_p->data(n, (void*)&assoc[i]);
@@ -10,7 +40,6 @@
  * Defined i and fh as intptr_t to eliminate cast to pointer from integer of different size
  *   warning when compiling 64 bit version.
  * Added -std=c++03 to compile command.
- * 
  * 
  * Version 1.0.8 updated 2020-02-01 by Rich
  * Changed #include <Fl/Fl_Hold_Browser.H to #include <FL/Fl_Hold_Browser.H
@@ -44,9 +73,9 @@
 #define MAXFILEHINT 200 
 #define MAXASSOC 100        // application associations
 
-#define MAXFNAMELEN 256     // filename
-#define MAXFPATHLEN 768     // total path
-#define MAXFFULLPATHLEN 1024    // total path plus name
+#define MAXFNAMELEN 252     // filename
+#define MAXFPATHLEN 748     // total path
+#define MAXFFULLPATHLEN 1000    // total path plus name
 
 #define MAXNINAME 80         // name of user or user group 
 //#define MAXONAME 80         // user ("owner") name
@@ -66,7 +95,7 @@
 
 const char About_text[] = 
 "Fluff File Manager version %s\n"
-"copyright 2010 - 2012 by Michael A. Losh\n"
+"copyright 2010 - 2025 by Michael A. Losh and contributors\n"
 "\n"
 "Fluff is free software: you can redistribute it and/or\n"
 "modify it under the terms of the GNU General Public License\n"
@@ -80,6 +109,7 @@ const char About_text[] =
 /*-----------------------------------------------------------------*/
 
 #include <stdio.h>
+#include <cstdlib>
 #include <stdint.h>		// intptr_t
 #include <string.h>
 #include <ctype.h>
@@ -118,6 +148,8 @@ const char About_text[] =
 #include <FL/fl_show_colormap.H>
 #include <FL/Fl_Int_Input.H>
 #include <FL/Fl_Progress.H>
+#include <FL/Fl_PNG_Image.H>
+//#include <FL/names.h> 
 
 
 // Simple types, structs ====================================
@@ -157,6 +189,7 @@ enum {  MI_NEW_FILE = 0, MI_NEW_FOLDER, MI_NEW_SYMLINK,
         MI_SELECT_ALL, MI_PASTE, MI_OPENTERM, 
         MI_OPTIONS, MI_CANCEL, MI_FILETYPES,
         MI_ABOUT, MI_HELP,
+        MI_UP_DIR, MI_BK_DIR, MI_FW_DIR,
         MI_QUIT
 };
 
@@ -213,11 +246,11 @@ class file_item
         char path[MAXFPATHLEN];
         char name[MAXFNAMELEN];
         char fullpath[MAXFFULLPATHLEN];
-        char typestr[16];
+        char typestr[80];
         char sizestr[16];
         char permstr[16];
         char ownstr[MAXNINAME + MAXNINAME + 8];
-        char datestr[24];
+        char datestr[64];
         struct stat64 status;
         struct stat64 lstatus;        
         int filetype;
@@ -242,6 +275,13 @@ class file_item
         int guess_filetype(void);
         int fetch_status(void);
 };
+
+// forward declaration
+void switch_directory(file_item* new_dir_fi_p, bool is_fwd = true); 
+void btnbar_go_bk_cb(void);
+void btnbar_go_fw_cb(void);
+void btnbar_go_up_cb(void);
+
 
 class Dir_Tree_Browser : public Fl_Select_Browser {
     protected:
@@ -271,7 +311,8 @@ class File_Detail_List_Browser : public Fl_Multi_Browser {
     int dragy;
     int dragging;
     int partitioning;
-    int list_item_height;
+	int item_number_under_mouse(int mouse_y);
+	int item_y_coordinate(int line); // relative to widget coordinate y
     File_Detail_List_Browser(int x, int y, int w, int h);
     int num_selected(void);
     long long size_selected(void);
@@ -308,7 +349,7 @@ public:
     Fl_Button*          filetype_btn_p;
     Fl_Box*             linkpath_lbl_p;
     Fl_Box*             linkpath_dsp_p;
-    Fl_Button*          showlink_btn_p;
+    //Fl_Button*          visitlink_btn_p;
     Fl_Box*             filename_lbl_p;
     Fl_Input*           filename_inp_p;
     Fl_Box*             filepath_lbl_p;
@@ -340,7 +381,7 @@ public:
     static void fileowner_inp_cb(Fl_Widget* thewidget_p, void* theparent_p);
 
     static void perm_chk_cb(Fl_Widget* thewidget_p, void* theparent_p);
-    static void linkinfo_btn_cb(Fl_Widget* thewidget_p, void* theparent_p);
+    //static void visitlink_btn_cb(Fl_Widget* thewidget_p, void* theparent_p);
     static void filetype_btn_cb(Fl_Widget* thewidget_p, void* theparent_p);
 };
 
@@ -494,7 +535,7 @@ class Fluff_Window : public Fl_Double_Window {
     float prog_divider;
     
     Fl_Pack* btnbarpack_p;
-    Fl_Button* quit_btn_p;
+    //Fl_Button* quit_btn_p;
     Fl_Button* run_btn_p;
     Fl_Button* open_btn_p;
     Fl_Button* props_btn_p;
@@ -506,6 +547,11 @@ class Fluff_Window : public Fl_Double_Window {
     Fl_Button* delete_btn_p;
     Fl_Button* loc1_btn_p;
     Fl_Button* loc2_btn_p;
+
+    Fl_Button* go_up_btn_p;  // go up a folder level
+    Fl_Button* go_bk_btn_p;  // go back to previous location
+    Fl_Button* go_fw_btn_p;  // go forward to location you were at before
+
     Fl_Box*    path_lbl_p;
     Fl_Menu_Button* pathhist_menu_p;
     Fl_Button* about_btn_p;
@@ -607,15 +653,15 @@ int FiletypeHints = FIRST_CONFIGURED_FILEHINT;
 int AssocCountPerFiletype[MAXASSOC] = {0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0};
 struct association Association[MAXASSOC] = {
     //type       //action label //run cmd                
-    {FT_TEXT,       "View",     "aterm -e vi -R %s &"   },
-    {FT_TEXT,       "Edit",     "aterm -e vi %s &"            },
+    {FT_TEXT,       "View",     "xterm -e vi -R %s &"   },
+    {FT_TEXT,       "Edit",     "xterm -e vi %s &"            },
 
     {FT_DIR,        "Explore",  "fluff %s &"         },  // does not really launch separately
     {FT_DIR,        "Archive",  "tar -czf archive.tar.gz %s &"},
 
     {FT_EXEC,       "Run",      "./%s &"                },
 
-    {FT_SHELLSCRIPT,"Run",      "aterm -e ./%s &"       },          
+    {FT_SHELLSCRIPT,"Run",      "xterm -e ./%s &"       },          
     {FT_SHELLSCRIPT,"Edit",     "editor %s &"           },
 
     {FT_TCZ_EXT,    "Run",      "tce-run %s &"          },
@@ -628,10 +674,14 @@ int Associations = 9;
 
 static void MainMenuCB(Fl_Widget* window_p, void *userdata);
 Fl_Menu_Item main_right_click_menu[20] = {
-    {"&About",              FL_F + 10,     MainMenuCB, (void*)MI_ABOUT},
-    {"&Help",               FL_F + 1,      MainMenuCB, (void*)MI_HELP,FL_MENU_DIVIDER},
-    {"&Filetypes",          'f',           MainMenuCB, (void*)MI_FILETYPES,FL_MENU_DIVIDER},
-    {"&Quit",               FL_CTRL + 'q', MainMenuCB, (void*)MI_QUIT},
+    {"&About",              FL_F + 10,      MainMenuCB, (void*)MI_ABOUT},
+    {"&Help",               FL_F + 1,       MainMenuCB, (void*)MI_HELP,FL_MENU_DIVIDER},
+    {"&Filetypes",          'f',            MainMenuCB, (void*)MI_FILETYPES,FL_MENU_DIVIDER},
+    {"&Up to parent dir.",   FL_CTRL + 'u', MainMenuCB, (void*)MI_UP_DIR},
+    {"&Back in dir. hist",   FL_CTRL + 'b', MainMenuCB, (void*)MI_BK_DIR},
+    {"&Fwd. in dir. hist",   FL_CTRL + 'f', MainMenuCB, (void*)MI_FW_DIR,FL_MENU_DIVIDER},
+    {"&Filetypes",          'f',            MainMenuCB, (void*)MI_FILETYPES,FL_MENU_DIVIDER},
+    {"&Quit",               FL_CTRL + 'q',  MainMenuCB, (void*)MI_QUIT},
     {0}
 };
 
@@ -648,6 +698,9 @@ Fl_Menu_Item dirtree_right_click_menu[20] = {
     {"Propert&ies",             FL_F + 7, DirTreeMenuCB, (void*)MI_PROPERTIES,FL_MENU_DIVIDER},
     {"&About",                  FL_F + 10, DirTreeMenuCB, (void*)MI_ABOUT},
     {"&Help",                   FL_F + 1, DirTreeMenuCB, (void*)MI_HELP,FL_MENU_DIVIDER},
+    {"&Up to parent dir.",      FL_CTRL + 'u', DirTreeMenuCB, (void*)MI_UP_DIR},
+    {"&Back in dir. hist",      FL_CTRL + 'b', DirTreeMenuCB, (void*)MI_BK_DIR},
+    {"&Fwd. in dir. hist",      FL_CTRL + 'f', DirTreeMenuCB, (void*)MI_FW_DIR,FL_MENU_DIVIDER},
     {"&Quit",                   FL_CTRL + 'q', DirTreeMenuCB, (void*)MI_QUIT},
     {0}
 };
@@ -666,6 +719,9 @@ Fl_Menu_Item file_right_click_menu[20] = {
     {"&Delete",             FL_Delete,   FileMenuCB, (void*)MI_DELETE,FL_MENU_DIVIDER},
     {"Open &terminal here", FL_ALT+'t', FileMenuCB, (void*)MI_OPENTERM},
     {"Propert&ies",         FL_F + 7, FileMenuCB, (void*)MI_PROPERTIES,FL_MENU_DIVIDER},
+    {"&Up to parent dir.",  FL_CTRL + 'u', FileMenuCB, (void*)MI_UP_DIR},
+    {"&Back in dir. hist",  FL_CTRL + 'b', FileMenuCB, (void*)MI_BK_DIR},
+    {"&Fwd. in dir. hist",  FL_CTRL + 'f', FileMenuCB, (void*)MI_FW_DIR,FL_MENU_DIVIDER},
     {"&Help",               FL_F + 10, FileMenuCB, (void*)MI_HELP},
     {"Cance&l",             'l', FileMenuCB, (void*)MI_CANCEL},
     {0}
@@ -716,7 +772,7 @@ file_item* Loc2_fi_p = NULL;
 file_item* VisitedDir[VISITED_DIR_MAX];
 int VisitedDirs = 0;
 unsigned int VisitedDirNewest = 0;
-unsigned int VisitedDirOldest = 0;
+unsigned int VisitedDirCur = 0;
 
 int OperationInProgress = 0;
 double TimeToResync_rsec = 0.0;
@@ -773,7 +829,6 @@ int column_in_filelist(int x);
 int new_item_sorts_before_existing_item(file_item* new_fi_p, file_item* fi_p, int sortspec);
 void analyze_and_disp_status(void);
 void bytecount_size_str(char* sizestr, int bytes);
-void switch_directory(file_item* new_dir_fi_p);
 int handle_global_keys(int e);
 void perform_select_all(void);
 int int_value_from_input_field(Fl_Input* inp_p, int* value, const char* warning_str = NULL);
@@ -914,7 +969,7 @@ const char* name_str_from_id(name_id_item* listroot_p, int id)
 }
 
 // Initial size and location hard-coded, 
-// but later size and loc recorded in .fluff.conf for recall
+// but later size and loc recorded in fluff.conf for recall
 int MainXPos =  15;
 int MainYPos =  40;
 int MainWide = 624;
@@ -922,7 +977,7 @@ int MainHigh = 500;
 int DirTreeWide = MainWide * 21 / 100;
 
 //char StartPath_str[MAXFPATHLEN]    = "/";
-char TrashbinPath_str[MAXFPATHLEN] = "/tmp/trash";
+char TrashbinPath_str[MAXFPATHLEN] = "/home/tc/.trash";
 char Loc1Label_str[MAXALBLLEN]     = "Home";
 char Loc1Path_str[MAXFPATHLEN]     = "/home/tc";
 char Loc2Label_str[MAXALBLLEN]     = "TCE";
@@ -942,7 +997,7 @@ void save_configuration(void)
     }
     char configfilename[MAXFFULLPATHLEN];
     char* env_home_p = getenv("HOME");
-    sprintf(configfilename, "%s/.fluff.conf", env_home_p);
+    sprintf(configfilename, "%s/.config/fluff.conf", env_home_p);
     FILE* cfgf = NULL;
     
     cfgf = fopen(configfilename, "w");
@@ -1068,9 +1123,12 @@ void save_configuration(void)
                     Association[assoc].cmd_spec);
         }
         
+		fclose(cfgf);
+		ConfigSaved = 1;
     }
-    fclose(cfgf);
-    ConfigSaved = 1;
+    else {
+		fl_alert("Could not save Fluff configuration\n to %s", configfilename);		
+	}
 }
 
 int new_assoc_num_for_filetype (int filetype)
@@ -1305,7 +1363,7 @@ void load_configuration(void)
     char strbuf[MAXFPATHLEN];
     char* sp = strbuf;
     char* env_home_p = getenv("HOME");
-    sprintf(configfilename, "%s/.fluff.conf", env_home_p);
+    sprintf(configfilename, "%s/.config/fluff.conf", env_home_p);
     FILE* cfgf = NULL;
     int n;
     
@@ -1540,28 +1598,26 @@ int file_item::fetch_status(void) {
     }
     int ret = lstat64(fullpath, &lstatus);
     if (ret) {
-        //printf("Error attempting lstat64 of '%s'\n", fullpath);
+#ifdef DIAG
+        printf("Error attempting lstat64 of '%s'\n", fullpath);
         perror("lstat64");
-        
-        struct stat64 bigstatus;
-        ret = lstat64(fullpath, &bigstatus);
-        if (ret) {
-            perror("lstat64");
-        }
+#endif        
         return 0;
     }
     
     ret = stat64(fullpath, &status);
     if (ret) {
-        //printf("Error attempting stat64 of '%s'\n", fullpath);
+#ifdef DIAG
+        printf("Error attempting stat64 of '%s'\n", fullpath);
         perror("stat64");
+#endif
         
         return 0;
     }
 
     // Update display strings
     guess_filetype();
-    sprintf(typestr, "%s%s", 
+    sprintf(typestr, "%4s%s", 
             is_link() ? "-->" : "",
             FiletypeName_str[filetype]);
     
@@ -1616,7 +1672,8 @@ file_item::file_item(char* thepath, char* thename) :
     strclr(permstr);
     strclr(ownstr);
     strclr(datestr);
-    memset(&status, 0, sizeof(struct stat64));
+    memset(&lstatus, 0, sizeof(struct stat64));
+    memset(&status,  0, sizeof(struct stat64));
     //printf(" ( constructing fi for %s%s)...", thepath, thename);
     fetch_status();
 };
@@ -1707,7 +1764,7 @@ Dir_Tree_Browser::Dir_Tree_Browser(int x, int y, int w, int h) :
     };
     
 int Dir_Tree_Browser::item_number_under_mouse(int mouse_y) {
-    int target_y = position() + mouse_y;
+    int target_y = vposition() + mouse_y;
     return 1 + (target_y / list_item_height);
 }
 
@@ -1724,7 +1781,7 @@ int Dir_Tree_Browser::top_visible_line(void) {
     int line_h = item_height(bi_p);
     int x, y, w, h;
     bbox(x, y, w, h);
-    return 1 + (position()/line_h);
+    return 1 + (vposition()/line_h);
 }
 
 file_item* Dir_Tree_Browser::file_item_under_mouse(int mouse_y) {
@@ -1860,7 +1917,7 @@ void Dir_Tree_Browser::populate(void)
 
 
 File_Detail_List_Browser::File_Detail_List_Browser(int x, int y, int w, int h) :
-    Fl_Multi_Browser(x, y, w, h), dragging(0), partitioning(0), list_item_height(16) 
+    Fl_Multi_Browser(x, y, w, h), dragging(0), partitioning(0) //, list_item_height(16) 
 {
 }
 
@@ -1894,9 +1951,11 @@ long long File_Detail_List_Browser::size_selected(void) {
 
 void File_Detail_List_Browser::populate(file_item* dir_fi_p) 
 {
-    static int need_item_height = 1;
-
-    //printf("File_Detail_List_Browser::populate()   ------------------ \n"); fflush(0);
+    //~ printf("File_Detail_List_Browser::populate()   ------------------ \n");
+    //~ clear();
+    //~ add("(dummy)", NULL);    
+    //~ printf("Text size %d, line spacing %d, item height %d\n", 
+			//~ textsize(), linespacing(), item_height(item_first()));  fflush(0);
     char fi_str[1024];
     int rc = chdir(dir_fi_p->fullpath);
     if (rc == -1) {
@@ -1996,15 +2055,10 @@ void File_Detail_List_Browser::populate(file_item* dir_fi_p)
                     );
             add(fi_str, (void*)file_p); //printf("browser: added line '%s'\n", fi_str); fflush(0);
             line++;
-            if (need_item_height) {
-                void* bi_p = item_first(); // browser item ptr.
-                if (bi_p)  list_item_height = item_height(bi_p);
-                need_item_height = 0;
-            }
         }
     }
     MainWnd_p->update_btnbar();
-    delete br_p;
+    delete br_p;    
 }
 
 #define abs(x) (((x) < 0) ? (-1*(x)):(x))
@@ -3162,14 +3216,14 @@ void File_Detail_List_Browser::draw()
     int line_h = partitioning ?  (H - 1) : (textsize());
     for ( int t=0; ColWidths[t]; t++ ) {
         colx += ColWidths[t];
-        if ( colx > X && colx < (X+W) && line_h > position() ) {
+        if ( colx > X && colx < (X+W) && line_h > vposition() ) {
             fl_color(42);
-            Y -= position();
+            Y -= vposition();
             fl_line(colx, Y, colx, Y+line_h);
             if (t == sortcol) {
                 fl_color(40);
                 int mx = colx - ColWidths[t] + textsize();
-                int my = Y - position();
+                int my = Y - vposition();
                 if (sortdown) {
                     my += textsize();
                     fl_polygon(mx - 12, my - 8, mx - 7, my - 3, mx - 2, my - 8);
@@ -3182,6 +3236,41 @@ void File_Detail_List_Browser::draw()
     }
 }
 
+int File_Detail_List_Browser::item_number_under_mouse(int mouse_y) {
+    int target_y = vposition() + mouse_y;
+
+    FL_BLINE * it = (FL_BLINE *)item_first();
+    if (!it)  return 0;
+    int accum_y = item_height(it);
+    int line = 1;
+	it = (FL_BLINE *)item_next(it);
+    while (it != NULL && accum_y < target_y) {
+		line++;
+		accum_y += item_height(it);
+		it = (FL_BLINE *)item_next(it);
+	}
+	//~ printf("Mouse event y %d is at widget y %d considering scroll pos %d is in list line %d, which goes to y %d\n",
+			//~ mouse_y, target_y, vposition(), line, accum_y);
+	return line;
+}
+
+int File_Detail_List_Browser::item_y_coordinate(int line) {
+	int line_y = 0;
+	if (line < 1) return line_y;
+	
+	int i = 2;
+	FL_BLINE * it = (FL_BLINE *)item_first();
+	line_y = item_height(it); // upper y of line 2 (first real row after header row)
+	while (i < line) {
+		it = (FL_BLINE *)item_next(it);
+		i++;
+		line_y += item_height(it); // bump coordinate to next line
+	}
+	
+	//~ printf("Click event y %d is at widget y %d considering scroll pos %d is in list line %d, which goes to y %d\n",
+			//~ mouse_y, target_y, vposition(), line, accum_y);
+	return line_y;
+}
 
 int File_Detail_List_Browser::handle(int e) {
     int ret = 0;
@@ -3192,9 +3281,10 @@ int File_Detail_List_Browser::handle(int e) {
     int ey = Fl::event_y();
     int wgt_x = ex - 2 - File_Detail_List_Browser::x() 
                 + File_Detail_List_Browser::hposition();   // x within scrolling widget
-    int wgt_y = ey - 2 - File_Detail_List_Browser::y() 
-                + File_Detail_List_Browser::position();    // y within scrolling widget
-    int event_row = 1 + (wgt_y) / list_item_height;
+    //~ int wgt_y = ey - 2 - File_Detail_List_Browser::y() 
+                //~ + File_Detail_List_Browser::vposition();    // y within scrolling widget
+    
+    int event_row = item_number_under_mouse(ey - y()); // 1 + (wgt_y) / list_item_height;
     int event_column = column_in_filelist(wgt_x);
     void* data_p = NULL;
     
@@ -3210,7 +3300,7 @@ int File_Detail_List_Browser::handle(int e) {
             return 1;
 
         case FL_PUSH:
-            //printf("PUSH event in file detail list, row %d\n", event_row); fflush(0); 
+            //printf("PUSH event in file  list, ptr y %d, scr y %d, iH %d, row %d\n", event_row); fflush(0); 
             MainWnd_p->last_click_browser = LASTCLICK_IN_LIST;            
             dragx = ex;
             dragy = ey;
@@ -3331,7 +3421,9 @@ int File_Detail_List_Browser::handle(int e) {
             return 1;
 
         case FL_RELEASE:
-            //printf("Mouse release in file detail list...\n"); fflush(0);
+			//~ printf("RELEASE event in file list, ey %d, bY %d, vpos %d, wgt_y %d, row %d\n", 
+					//~ ey,  y(), File_Detail_List_Browser::vposition(),wgt_y, event_row); fflush(0); 
+
             //analyze_and_disp_status();
             MainWnd_p->last_click_browser = LASTCLICK_IN_LIST;            
             if (MainWnd_p->mode == MAINWND_MODE_RENAMING) {
@@ -3392,7 +3484,7 @@ int File_Detail_List_Browser::handle(int e) {
                     p->deselect();
                     p->select(event_row);
                     p->redraw();
-                    ret = 1;
+                    ret = Fl_Multi_Browser::handle(e); // 1;
                 }
                 data_p = p->data(event_row);
                 if (data_p) {
@@ -3473,7 +3565,7 @@ Fluff_Window::Fluff_Window()
 {
     
         btnbarpack_p = NULL;
-        quit_btn_p = NULL;
+        //quit_btn_p = NULL;
         run_btn_p = NULL;
         open_btn_p = NULL;
         props_btn_p = NULL;
@@ -3563,6 +3655,10 @@ void Fluff_Window::set_titles(void) {
         sprintf(wintitle, "Fluff File Manager");
     }
     label(wintitle);
+//    resize(x(), y(), w()+1, h());
+//    redraw();
+//    resize(x(), y(), w()-1, h());
+    redraw();
 }
 
 enum {ADJUST_NONE = 0, ADJUST_TREE_WIDTH};
@@ -3596,7 +3692,8 @@ int Fluff_Window::handle(int e) {
     int lx = p->list_p->x();
     //int lw = p->list_p->x();
     
-    //printf("Fluff_Window event %d\n", e); fflush(0);
+	//printf("MainWnd Event %d %s\n", e,  fl_eventnames[e]);
+
     switch ( e ) {
         case FL_SHORTCUT:
             if (Fl::event_key()==FL_Escape) {
@@ -3628,6 +3725,18 @@ int Fluff_Window::handle(int e) {
                 MainWnd_p->sel_fi_p = NULL;
                 return 1;
             }
+            else if (key == 'b' && (Fl::event_state() & FL_CTRL)) {
+				btnbar_go_bk_cb();
+				return 1;
+			}
+            else if (key == 'f' && (Fl::event_state() & FL_CTRL)) {
+				btnbar_go_fw_cb();
+				return 1;
+			}
+            else if (key == 'u' && (Fl::event_state() & FL_CTRL)) {
+				btnbar_go_up_cb();
+				return 1;
+			}
             else {
                 return handle_global_keys(e);
             }
@@ -3858,6 +3967,7 @@ void btnbar_paste_cb(void)
 
 void perform_file_trash(file_item* fi_p)
 {
+    char cmdstr[2048];
     char newname[640];
     strclr(newname);
     char* p = fi_p->fullpath;
@@ -3873,7 +3983,6 @@ void perform_file_trash(file_item* fi_p)
     }
     *n = '\0';
     
-    char cmdstr[1024];
     sprintf(cmdstr, "%smv -f \"%s\" \"%s/%s\"",
             UseSudo ? "sudo " : "", 
             fi_p->name, TrashbinPath_str, newname);
@@ -3979,6 +4088,27 @@ void btnbar_about_cb(void)
     fl_message(About_text, APP_VER);
 }
 
+void btnbar_go_up_cb(void)
+{
+	if (MainWnd_p->seldir_fi_p && MainWnd_p->seldir_fi_p->parent_fi_p) {
+		switch_directory(MainWnd_p->seldir_fi_p->parent_fi_p);
+	}
+}
+
+void btnbar_go_bk_cb(void)
+{
+	int i = VisitedDirCur - 1;
+	if (i < 0) i = 0;
+    switch_directory(VisitedDir[i]);	
+}
+
+void btnbar_go_fw_cb(void)
+{
+	int i = VisitedDirCur + 1;
+	if (i >= VisitedDirs) i = (VisitedDirs - 1);
+    switch_directory(VisitedDir[i]);	
+}
+
 void btnbar_help_cb(void)
 {
     Fl_Help_Dialog hd;
@@ -3992,7 +4122,7 @@ void btnbar_help_cb(void)
 
 void path_hist_menu_cb(void) {
     int item = MainWnd_p->pathhist_menu_p->value();
-    int i = (VisitedDirNewest - item - 1) & (VISITED_DIR_MAX - 1);
+    int i = VisitedDirs - item - 1;
     //printf("item %d %s selected\n", item, MainWnd_p->pathhist_menu_p->text());
     //printf("Go to visited directory %d %s\n", i, VisitedDir[i]->fullpath);
     switch_directory(VisitedDir[i]);
@@ -4055,28 +4185,46 @@ void Fluff_Window::adjust_pathhist_menu_size(void)
 void Fluff_Window::setup(void) 
 {
     begin();
-    
-    Fl_Pack* v = new Fl_Pack(0,0,w(), h() - 40);
-    v->spacing(4);
-    v->begin();
-    {
-        Fl_Box* o = new Fl_Box(0,0,1,1);  //spacer
-        o->box(FL_NO_BOX);
-    }
-        
-    btnbarpack_p = new Fl_Pack(0,0,w(), 28);
+
+    Fl_Group* v = new Fl_Group(0,0,w()-2, h()-2);
+    v->type(Fl_Pack::VERTICAL);
+
+    //---        
+    btnbarpack_p = new Fl_Pack(0,4,w()-2, 28);
     btnbarpack_p->type(Fl_Pack::HORIZONTAL);
     btnbarpack_p->spacing(4);
     btnbarpack_p->begin();
-
     {
         Fl_Box* o = new Fl_Box(0,0,0,14);  //spacer
         o->box(FL_NO_BOX);
     }
-    quit_btn_p = new Fl_Button(0, 0, 34, 14, "Quit");
-    quit_btn_p->labelsize(12);
-    quit_btn_p->callback((Fl_Callback*)btnbar_quit_cb);
+    //~ quit_btn_p = new Fl_Button(0, 0, 34, 14, "Quit");
+    //~ quit_btn_p->labelsize(12);
+    //~ quit_btn_p->callback((Fl_Callback*)btnbar_quit_cb);
+
+     loc1_btn_p = new Fl_Button(0, 0, 38, 14, Loc1Label_str);
+    loc1_btn_p->labelsize(12);
+    loc1_btn_p->callback((Fl_Callback*)btnbar_loc1_cb);
+    loc2_btn_p = new Fl_Button(0, 0, 38, 14, Loc2Label_str);
+    loc2_btn_p->labelsize(12);
+    loc2_btn_p->callback((Fl_Callback*)btnbar_loc2_cb);
+    {
+        Fl_Box* o = new Fl_Box(0,0,12,16);  //spacer
+        o->box(FL_NO_BOX);
+    }
+    about_btn_p = new Fl_Button(0, 0, 18, 16, "A");
+    about_btn_p->labelsize(12);
+    about_btn_p->callback((Fl_Callback*)btnbar_about_cb);
+    about_btn_p->tooltip("About");
     
+    help_btn_p = new Fl_Button(0, 0, 36, 16, "Help");
+    help_btn_p->labelsize(12);
+    help_btn_p->callback((Fl_Callback*)btnbar_help_cb);
+    {
+        Fl_Box* o = new Fl_Box(0,0,12,16);  //spacer
+        o->box(FL_NO_BOX);
+    }
+   
     run_btn_p = new Fl_Button(0, 0, 50, 14, "---");
     run_btn_p->labelsize(12);
     run_btn_p->callback((Fl_Callback*)btnbar_action1_cb);
@@ -4127,25 +4275,20 @@ void Fluff_Window::setup(void)
         Fl_Box* o = new Fl_Box(0,0,12,16);  //spacer
         o->box(FL_NO_BOX);
     }
-    loc1_btn_p = new Fl_Button(0, 0, 38, 14, Loc1Label_str);
-    loc1_btn_p->labelsize(12);
-    loc1_btn_p->callback((Fl_Callback*)btnbar_loc1_cb);
-    loc2_btn_p = new Fl_Button(0, 0, 38, 14, Loc2Label_str);
-    loc2_btn_p->labelsize(12);
-    loc2_btn_p->callback((Fl_Callback*)btnbar_loc2_cb);
-    {
-        Fl_Box* o = new Fl_Box(0,0,12,16);  //spacer
-        o->box(FL_NO_BOX);
-    }
-    about_btn_p = new Fl_Button(0, 0, 18, 16, "A");
-    about_btn_p->labelsize(12);
-    about_btn_p->callback((Fl_Callback*)btnbar_about_cb);
-    about_btn_p->tooltip("About");
-    
-    help_btn_p = new Fl_Button(0, 0, 36, 16, "Help");
-    help_btn_p->labelsize(12);
-    help_btn_p->callback((Fl_Callback*)btnbar_help_cb);
-    
+    go_up_btn_p = new Fl_Button(0, 0, 18, 16, "@-38UpArrow");
+    go_up_btn_p->labelsize(12);
+    go_up_btn_p->callback((Fl_Callback*)btnbar_go_up_cb);
+    go_up_btn_p->tooltip("Parent dir");
+
+    go_bk_btn_p = new Fl_Button(0, 0, 18, 16, "@<");
+    go_bk_btn_p->labelsize(12);
+    go_bk_btn_p->callback((Fl_Callback*)btnbar_go_bk_cb);
+    go_bk_btn_p->tooltip("Back");
+
+    go_fw_btn_p = new Fl_Button(0, 0, 18, 16, "@>");
+    go_fw_btn_p->labelsize(12);
+    go_fw_btn_p->callback((Fl_Callback*)btnbar_go_fw_cb);
+    go_fw_btn_p->tooltip("Forward");    
     {
         Fl_Box* o = new Fl_Box(0,0,4,16);  //spacer
         o->box(FL_NO_BOX);
@@ -4161,17 +4304,19 @@ void Fluff_Window::setup(void)
     pathhist_menu_p->color(FL_BACKGROUND2_COLOR);
     pathhist_menu_p->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE | FL_ALIGN_CLIP);
     
+    btnbarpack_p->resizable(pathhist_menu_p);
     btnbarpack_p->end();
-    btnbarpack_p->resizable(NULL);
 
-    browspack_p  = new Fl_Pack(0,0,w(), h() - 58);
+    //---
+    int brows_h = h() - (4 + 28 + 4 + 4 + 16);
+    browspack_p  = new Fl_Pack(0, 4 + 28 + 4, w() - 2, brows_h);
     browspack_p->type(Fl_Pack::HORIZONTAL);
     browspack_p->begin();
     
-    treegroup_p = new Fl_Group(0, 0, DirTreeWide, h() - 20);
+    treegroup_p = new Fl_Group(0, 0, DirTreeWide, brows_h);
     treegroup_p->begin();
-    tree_p  = new Dir_Tree_Browser(0, 0, DirTreeWide, h() - 20);
-    Fl_DND_Box* o = new Fl_DND_Box(0, 0, DirTreeWide, h() - 20);
+    tree_p  = new Dir_Tree_Browser(0, 0, DirTreeWide, brows_h);
+    Fl_DND_Box* o = new Fl_DND_Box(0, 0, DirTreeWide, brows_h);
     o->when(FL_WHEN_CHANGED | FL_WHEN_RELEASE);
     o->callback(dirtree_dnd_cb);
     treegroup_p->end();
@@ -4179,43 +4324,43 @@ void Fluff_Window::setup(void)
     Fl_Box* b = new Fl_Box(0, 0, 6, h() - 40);    // spacer
     b->box(FL_FLAT_BOX);
 
-    listgroup_p = new Fl_Group(0, 0, w() - 6 - DirTreeWide, h() - 20);
+    listgroup_p = new Fl_Group(0, 0, w() - 6 - DirTreeWide, brows_h);
     listgroup_p->begin();
     list_p  = new File_Detail_List_Browser( 0, 0, 
-                                    w() - 6 - DirTreeWide, h() - 20);
+                                    w() - 6 - DirTreeWide, brows_h);
     list_p->column_widths(ColWidths);
-    o = new Fl_DND_Box(0, 0, w() - 6 - DirTreeWide, h() - 20);
+    o = new Fl_DND_Box(0, 0, w() - 6 - DirTreeWide, brows_h);
     o->when(FL_WHEN_CHANGED | FL_WHEN_RELEASE);
     o->callback(filelist_dnd_cb);
     listgroup_p->end();
     listgroup_p->resizable(list_p);
-
-    
-    browspack_p->end();
     browspack_p->resizable(listgroup_p);
-    
+    browspack_p->end();
+
     tree_p->callback((Fl_Callback0*)dirtree_change_cb);
     list_p->callback((Fl_Callback0*)filelist_change_cb);
     list_p->when(FL_WHEN_CHANGED);
 
-    
-    status_grp_p = new Fl_Group(0, 0, w(), 16);
+    //---
+    status_grp_p = new Fl_Group(0, h() - 18, w()-2, 16);
     status_grp_p->begin();
-    mainwnd_status_lbl_p = new Fl_Box(0, 0, 300, 16, "Dir Info");
+    status_grp_p->type(Fl_Pack::HORIZONTAL);
+    mainwnd_status_lbl_p = new Fl_Box(0, h() - 18, 300, 16, "Dir Info");
     mainwnd_status_lbl_p->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
     mainwnd_status_lbl_p->labelsize(12);
-    progress_p = new Fl_Progress(316, 0, w() - 324, 16, "Progress");
+    progress_p = new Fl_Progress(316, h() - 18, w() - 324, 16, "Progress");
     progress_p->minimum(0);
     progress_p->maximum(1000);
     progress_p->hide();
     progress_by_bytes = 1;
-    status_grp_p->end();
     status_grp_p->resizable(progress_p);
+    status_grp_p->end();
 
+    //---
+    v->resizable(browspack_p);
     v->end();
-    v->resizable(list_p);
+    resizable(v);
     end();
-    resizable(list_p);
    
     fprops_p =  new File_Props_Window(400, 200, 440, 350, Root_fi_p);
     fprops_p->setup();
@@ -4346,7 +4491,7 @@ void File_Props_Window::apply_btn_cb(Fl_Widget* thewidget_p, void* theparent_p)
         conditionally_rename(fpw_p->fi_p, fpw_p->filename_inp_p->value());
     }
     if (strncmp(fpw_p->fi_p->ownstr, fpw_p->fileowner_inp_p->value(), 128)){
-        char cmd[128];
+        char cmd[512];
         sprintf(cmd, "%schown %s %s", UseSudo ? "sudo " : "",
                 fpw_p->fileowner_inp_p->value(), fpw_p->fi_p->name);
         err = system(cmd);
@@ -4400,22 +4545,80 @@ void File_Props_Window::filetype_btn_cb(Fl_Widget* thewidget_p, void* theparent_
     }
 }
 
-void File_Props_Window::linkinfo_btn_cb(Fl_Widget* thewidget_p, void* theparent_p)
+/*
+void File_Props_Window::visitlink_btn_cb(Fl_Widget* thewidget_p, void* theparent_p)
 {
-    //printf("linkinfo_btn_cb"); fflush(0);
-
     File_Props_Window* fpw_p = (File_Props_Window*)theparent_p;
-    strnzcpy(MainWnd_p->path, fpw_p->linkpath_dsp_p->label(), MAXFFULLPATHLEN);
-    file_item* link_fi_p;
-    build_tree_for_branch(MainWnd_p->path, Root_fi_p, MainWnd_p->path, &link_fi_p);
-    if (link_fi_p) {
-        switch_directory(link_fi_p);
-        fpw_p->show_file(MainWnd_p->seldir_fi_p);
+    printf("visitlink_btn_cb; MainWnd_p->path is %s; link path is %s \n", MainWnd_p->path, fpw_p->linkpath_dsp_p->label()); fflush(0);
+    
+    char abs_path[MAXFFULLPATHLEN];
+    char fulllinkpath[MAXFFULLPATHLEN];
+    char dir_path[MAXFFULLPATHLEN];
+    char item_name[MAXFNAMELEN];
+    strnzcpy(fulllinkpath, fpw_p->linkpath_dsp_p->label(), MAXFFULLPATHLEN);
+    if (fulllinkpath[0] != '/') {
+		strnzcpy(fulllinkpath, MainWnd_p->path, MAXFFULLPATHLEN);	
+		strncat(fulllinkpath, "/", MAXFFULLPATHLEN-1);
+		strncat(fulllinkpath, fpw_p->linkpath_dsp_p->label(), MAXFFULLPATHLEN-1);
+	}
+	char * ap = realpath(fulllinkpath, abs_path);
+	printf("Resolved absolute path is '%s'\n", ap);
+
+	strnzcpy(dir_path, abs_path, MAXFFULLPATHLEN);
+	//trim off last name to make a directory name
+	char *q = dir_path + strlen(dir_path) - 1;
+	char *n = item_name + MAXFNAMELEN - 1;
+	*n = '\0';
+	n--;
+	while (*q != '/') {
+		*n = *q;
+		n--;
+		*q = '\0';
+		q--;
+	}
+	if (strlen(q) > 1) {
+		*q = '\0';
+	}
+	n++; // adjust back to start of item name
+	
+	struct stat64 trgstat;
+	if (stat64(dir_path, &trgstat)) {
+		printf("Link path '%s' not found!\n", dir_path);
+		return;
+	}
+	if (stat64(abs_path, &trgstat)) {
+		printf("Link target '%s' not found!\n", abs_path);
+		return;
+	}
+	//int tgt_is_dir = S_ISDIR(trgstat.st_mode);
+
+    file_item* linkdir_fi_p;
+    build_tree_for_branch(dir_path, Root_fi_p, dir_path, &linkdir_fi_p);
+    if (linkdir_fi_p) {
+        switch_directory(linkdir_fi_p);
+        // Select the target file
+        file_item* file_p;
+        int found = 0;
+        for (int i = 2; i <= MainWnd_p->list_p->size(); i++) {
+             file_p = (file_item*)(MainWnd_p->list_p->data(i));
+            //printf(" - - List item is '%s'\n", file_p->fullpath);
+            if (!strcmp(abs_path, file_p->fullpath)) {
+                MainWnd_p->list_p->select(i, 1);
+                MainWnd_p->list_p->middleline(i);
+                found = 1;
+                break;
+            }
+        }
+		if (found) {
+			fpw_p->hide();
+		}
+		delete linkdir_fi_p;
     }
     else {
-        fl_alert("Link target file not found!");
+        fl_alert("Link target directory '%s' not found!", fulllinkpath);
     }
 }
+*/
 
 void File_Props_Window::name_inp_cb(Fl_Widget*w_p, void* v_p)
 {
@@ -4517,9 +4720,9 @@ void File_Props_Window::setup(void)
     linkpath_dsp_p->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE | FL_ALIGN_CLIP);
     linkpath_dsp_p->labelsize(10);
     linkpath_dsp_p->deactivate();
-    showlink_btn_p = new Fl_Button( x1 + fw1 - 50, y, 50, 22, "Info...");
-    showlink_btn_p->callback(linkinfo_btn_cb, (void*)this);
-    showlink_btn_p->deactivate();
+    //visitlink_btn_p = new Fl_Button( x1 + fw1 - 50, y, 50, 22, "Visit...");
+    //visitlink_btn_p->callback(visitlink_btn_cb, (void*)this);
+    //visitlink_btn_p->deactivate();
     y += 20;
 
     filesize_lbl_p = new Fl_Box( x0, y, w1, 16, "Size:");
@@ -4644,23 +4847,30 @@ void File_Props_Window::show_file(file_item* fileitem_p)
     //printf("Will check for link target\n"); fflush(0);
     if (fi_p->is_link()) {
         int trglen = readlink(fi_p->fullpath, trg_path, 1023);
-        if (trglen < 0) {
-            perror("readlink");
-        }
+        if (trglen <= 0) {
+			if (trglen < 0) {
+				perror("readlink");
+			}
+			// link but info is missing
+			linkpath_dsp_p->label("");
+			linkpath_lbl_p->deactivate();
+			linkpath_dsp_p->deactivate();
+			//visitlink_btn_p->deactivate();
+		}
         else {
             trg_path[trglen] = '\0';
             linkpath_dsp_p->copy_label(trg_path);
+			linkpath_lbl_p->activate();
+			linkpath_dsp_p->activate();
+			//visitlink_btn_p->activate();
         }
-        linkpath_lbl_p->activate();
-        linkpath_dsp_p->activate();
-        showlink_btn_p->activate();
     }
     else {
         //printf("Not link, disabling certain fields\n");
         linkpath_dsp_p->label("");
         linkpath_lbl_p->deactivate();
         linkpath_dsp_p->deactivate();
-        showlink_btn_p->deactivate();
+        //visitlink_btn_p->deactivate();
     }
 
     if (fi_p->status.st_size < (1536)) {
@@ -4695,7 +4905,7 @@ void File_Props_Window::show_file(file_item* fileitem_p)
     
     if (fi_p->is_dir()) {
         char diskspace_str[32];
-        char fc_cmd_str[256];
+        char fc_cmd_str[1024];
         char filecount_str[128];
         char dirstatus_str[128];
         int files = 0;
@@ -4742,6 +4952,15 @@ static void MainMenuCB(Fl_Widget* window_p, void *userdata)
     switch (choice) {
         case MI_ABOUT:
             btnbar_about_cb();
+            break;
+        case MI_UP_DIR:
+            btnbar_go_up_cb();
+            break;
+        case MI_BK_DIR:
+            btnbar_go_bk_cb();
+            break;
+        case MI_FW_DIR:
+            btnbar_go_fw_cb();
             break;
         case MI_HELP:
             btnbar_help_cb();
@@ -4898,8 +5117,8 @@ int conditionally_rename(file_item* fi_p, const char* newname)
 }
 
 void create_clone_name(file_item* fi_p, char* buf) {
-    char candidate[MAXFNAMELEN];
-    char fullpath[MAXFFULLPATHLEN];
+    char candidate[MAXFNAMELEN+128];
+    char fullpath[MAXFFULLPATHLEN+128];
     int n = 1;
     struct stat64 s;
     while(1) {
@@ -4917,7 +5136,7 @@ void create_clone_name(file_item* fi_p, char* buf) {
 int conditionally_copy_or_move(file_item* targetdir_fi_p, file_item* src_fi_p, fileop_enum cmd)
 {
     int fileanswer = FILE_ANSWER_PROCEED;  // default to replacing
-    char cmdstr[1024] = {0};
+    char cmdstr[2048] = {0};
     char filepath[MAXFPATHLEN];
     // Is this a copy into same directory (make a clone?)
     strcpy(filepath, src_fi_p->path);
@@ -5025,15 +5244,14 @@ void begin_renaming(void)
 
         fi_p = MainWnd_p->sel_fi_p;
         rx = 4 + p->x();
-        ry = p->y() + ((p->value() - 1) * p->list_item_height)
-                     - p->position();
+        ry = p->y() + p->item_y_coordinate(p->value()) - p->vposition();
     }
     else {
         fi_p = MainWnd_p->targdir_fi_p;
         Dir_Tree_Browser* p = MainWnd_p->tree_p;
         rx = 4 + p->x();
         ry = p->y() + ((p->value() - 1) * p->list_item_height)
-                     - p->position();
+                     - p->vposition();
     }
     //printf("begining to rename %s, rx %d, ry %d\n", fi_p->fullpath, rx, ry); fflush(0);
     chdir(fi_p->path);
@@ -5092,6 +5310,15 @@ static void DirTreeMenuCB(Fl_Widget* window_p, void *userdata)
             break;            
         case MI_CANCEL:
             break;            
+        case MI_UP_DIR:
+            btnbar_go_up_cb();
+            break;
+        case MI_BK_DIR:
+            btnbar_go_bk_cb();
+            break;
+        case MI_FW_DIR:
+            btnbar_go_fw_cb();
+            break;
         case MI_ABOUT:
             btnbar_about_cb();
             break;
@@ -5228,7 +5455,7 @@ void perform_file_copy_or_move(fileop_enum oper, file_item* dir_fi_p, int using_
 void perform_file_delete(int what)
 {
     char* filestr;
-    char dirstr[256];
+    char dirstr[2048];
     if (what == DELETE_SELECTED) {
         filestr = sel_files_str();
     }
@@ -5320,7 +5547,8 @@ static void FileMenuCB(Fl_Widget* window_p, void *userdata)
     long choice = (long)userdata;
     File_Detail_List_Browser* mb_p = (File_Detail_List_Browser*)MainWnd_p->list_p;
     char cmdstr[1024] = {0};
-    
+	char cmd[2048];
+
     switch (choice) {
         case MI_RUN:
             perform_run_or_browse();
@@ -5368,7 +5596,6 @@ static void FileMenuCB(Fl_Widget* window_p, void *userdata)
         case MI_RESTORE:
             wait_cursor();
             if (mb_p->num_selected()) {
-                char cmd[1024];
                 char fullpath[640];
                 int t = 0;
                 MainWnd_p->init_progress(0, "file", "restored from trash", 
@@ -5421,6 +5648,18 @@ static void FileMenuCB(Fl_Widget* window_p, void *userdata)
             perform_file_delete(DELETE_SELECTED);
             break;
             
+        case MI_UP_DIR:
+            btnbar_go_up_cb();
+            break;
+
+        case MI_BK_DIR:
+            btnbar_go_bk_cb();
+            break;
+
+        case MI_FW_DIR:
+            btnbar_go_fw_cb();
+            break;
+
         case MI_HELP:
             btnbar_help_cb();
             break;
@@ -5507,7 +5746,7 @@ int new_item_sorts_before_existing_item(file_item* new_fi_p, file_item* fi_p, in
 int get_child_file_items(file_item* fi_p)
 {
     int ret = 0;
-    char dir_str[512] = {0};
+    char dir_str[MAXFFULLPATHLEN] = {0};
     int curlevel;
     sprintf(dir_str, "%s%s/", fi_p->path, fi_p->name);
     //printf("Getting children of '%s'\n", dir_str);
@@ -5723,46 +5962,132 @@ void prune_file_item(file_item* fi_p)
     prune_single_file_item(fi_p);
 }
 
-void switch_directory(file_item* new_dir_fi_p) {
+// return -1 if dir_p is not in the visited directory set
+// will start checking at index start_i and and scan downwards, 
+// returning the first match backwards
+int dirp_index_in_visted_set(file_item* dir_p, int start_i)
+{
+	int idx = -1;
+	if (VisitedDirs < VISITED_DIR_MAX) {
+		for (int i = start_i; i >= 0; i--) {
+			if (VisitedDir[i] == dir_p) {
+				idx = i;
+				break;
+			}
+		}
+	}
+	else {
+		int n = 1;
+		int i = start_i;
+		while (n < VISITED_DIR_MAX) {
+			if (VisitedDir[i] == dir_p) {
+				idx = i;
+				break;
+			}
+			i = (i + 1) % VISITED_DIR_MAX;
+			n++;
+		} 
+	}
+	return idx;
+}
+
+void switch_directory(file_item* new_dir_fi_p, bool is_fwd) 
+{
+	unsigned int initVistedDirCur = VisitedDirCur;
     if (new_dir_fi_p) {
-        int need_remember = 1;
-        //printf("switch_dir on entry: oldest %d, newest %d, dirs %d, switch to  %s, adding %s to menu\n",
-        //        VisitedDirOldest, VisitedDirNewest, VisitedDirs, 
-        //        new_dir_fi_p->fullpath, MainWnd_p->seldir_fi_p->fullpath); fflush(0);
+        //~ printf("switch_dir on entry: cur %d, newest %d, dirs %d, switch to  %s, cur dir is %s\n",
+                //~ VisitedDirCur, VisitedDirNewest, VisitedDirs, 
+                //~ new_dir_fi_p->fullpath, MainWnd_p->seldir_fi_p->fullpath); fflush(0);
+        // make sure we know where the current one is in the list, if any
         if (MainWnd_p->seldir_fi_p) {
             // Check to see if current dir is already in list
-            unsigned int i = VisitedDirOldest;
-            for ( int n = 0; n < VisitedDirs; n++) 
-            {                
-                if (MainWnd_p->seldir_fi_p == VisitedDir[i]) {
-                    need_remember = 0;
-                    //printf("need_remember = %d\n", need_remember);
-                    break;
-                }
-                i = (i + 1) & (VISITED_DIR_MAX-1);
-            }
-            if (need_remember) {
-                VisitedDir[VisitedDirNewest] = MainWnd_p->seldir_fi_p;
-                if (VisitedDirs < VISITED_DIR_MAX) {
-                    VisitedDirs++;
-                }
-                else {
-                    VisitedDirOldest = (VisitedDirOldest + 1) % VISITED_DIR_MAX;
-                }
-                VisitedDirNewest = (VisitedDirNewest + 1) % VISITED_DIR_MAX;
-            }
+			if (MainWnd_p->seldir_fi_p != VisitedDir[VisitedDirCur] && VisitedDirs > 0) {
+				int i = dirp_index_in_visted_set(MainWnd_p->seldir_fi_p, VisitedDirs - 1);
+				if (i >= 0) {
+					VisitedDirCur = i;
+				}
+				else {
+					// remember the current one
+					if (VisitedDirs < VISITED_DIR_MAX) {
+						// add to end
+						VisitedDirCur = VisitedDirs;
+						VisitedDirs++;
+					}
+					else {
+						// add after current newest, perhaps replacing an much older one
+						VisitedDirCur = (VisitedDirNewest + 1) % VISITED_DIR_MAX;
+					}
+					VisitedDir[VisitedDirCur] = MainWnd_p->seldir_fi_p;
+					VisitedDirNewest = VisitedDirCur;
+				}
+			}
         }
+		if (MainWnd_p->seldir_fi_p) {
+			if (is_fwd) {
+				// first check to see whether we are stepping forward through visited list
+				int fwd_from_cur_slot = (VisitedDirCur + 1) % VISITED_DIR_MAX;
+				if (VisitedDir[fwd_from_cur_slot] == new_dir_fi_p) {
+					// yes, just move the current one to the fwd slot position
+					VisitedDirCur = fwd_from_cur_slot;
+				}
+				else {
+					int i = dirp_index_in_visted_set(new_dir_fi_p, VisitedDirs - 1);
+					if (i >= 0) {
+						VisitedDirCur = i;
+					}
+					else {
+						// branch off from prior history, perhaps pruning some of it
+						VisitedDirNewest = fwd_from_cur_slot;
+						VisitedDir[VisitedDirNewest] = new_dir_fi_p; // put it in history
+						VisitedDirCur = VisitedDirNewest;
+						VisitedDirs = VisitedDirNewest + 1;
+						if (VisitedDirs > VISITED_DIR_MAX) {
+							VisitedDirs = VISITED_DIR_MAX;
+						}
+					}
+				}
+			}
+			else {
+				int rev_from_cur_slot = VisitedDirCur - 1;
+				if (rev_from_cur_slot < 0) {
+					rev_from_cur_slot = 0;
+				}
+				int i = dirp_index_in_visted_set(new_dir_fi_p, VisitedDirCur - 1);
+				if (i >= 0) {
+					// just move back there, 
+					VisitedDirCur = i;
+				}
+				else {
+					// shouldn't happen if using the backward mode!
+					printf("Trying to go back in history but didn't find expected directory!\n");
+				}				
+			}
+		}
+		else {
+			VisitedDirNewest = (VisitedDirNewest + 1) % VISITED_DIR_MAX;
+			VisitedDir[VisitedDirNewest] = new_dir_fi_p; // put it in history
+			VisitedDirCur = VisitedDirNewest;
+			VisitedDirs = VisitedDirNewest + 1;
+			if (VisitedDirs > VISITED_DIR_MAX) {
+				VisitedDirs = VISITED_DIR_MAX;
+			}
+		}
+
         MainWnd_p->pathhist_menu_p->clear();
         //printf("switch_dir before filling menu: oldest %d, newest %d, dirs %d\n",
-        //        VisitedDirOldest, VisitedDirNewest, VisitedDirs); fflush(0);
-        for(unsigned int i = (VisitedDirNewest - 1) & (VISITED_DIR_MAX-1) ;
-                i != VisitedDirOldest ;
-                i = (i - 1) & (VISITED_DIR_MAX-1)) {
-            MainWnd_p->pathhist_menu_p->add(VisitedDir[i]->fullpath);
-            //printf("   added from slot %d, %s\n", i, VisitedDir[i]->fullpath); fflush(0);
-        }
-        MainWnd_p->pathhist_menu_p->add(VisitedDir[VisitedDirOldest]->fullpath);
-        //printf("   added from slot %d, %s\n", VisitedDirOldest, VisitedDir[VisitedDirOldest]->fullpath); fflush(0);
+        //        VisitedDirCur, VisitedDirNewest, VisitedDirs); fflush(0);
+        
+        //~ for(unsigned int i = (VisitedDirNewest - 1) & (VISITED_DIR_MAX-1) ;
+                //~ i != VisitedDirCur ;
+                //~ i = (i - 1) & (VISITED_DIR_MAX-1)) {
+            //~ MainWnd_p->pathhist_menu_p->add(VisitedDir[i]->fullpath);
+            //~ //printf("   added from slot %d, %s\n", i, VisitedDir[i]->fullpath); fflush(0);
+        //~ }
+        //~ MainWnd_p->pathhist_menu_p->add(VisitedDir[VisitedDirCur]->fullpath);
+        //~ //printf("   added from slot %d, %s\n", VisitedDirCur, VisitedDir[VisitedDirCur]->fullpath); fflush(0);
+        for (int i = (VisitedDirs - 1); i >= 0; i--) {
+			MainWnd_p->pathhist_menu_p->add(VisitedDir[i]->fullpath);
+		}
         MainWnd_p->pathhist_menu_p->label(new_dir_fi_p->fullpath);
         MainWnd_p->seldir_fi_p = new_dir_fi_p;
         strnzcpy(MainWnd_p->path, new_dir_fi_p->fullpath, MAXFFULLPATHLEN);
@@ -5774,9 +6099,13 @@ void switch_directory(file_item* new_dir_fi_p) {
             }
         } */
         sync_gui_with_filesystem();
+        
+        if (VisitedDirCur != initVistedDirCur) {
+			MainWnd_p->list_p->vposition(0);
+		}
 
         //printf("switch_dir on exit: oldest %d, newest %d, dirs %d\n",
-//                VisitedDirOldest, VisitedDirNewest, VisitedDirs); fflush(0);
+//                VisitedDirCur, VisitedDirNewest, VisitedDirs); fflush(0);
     }
 }
 
@@ -6023,15 +6352,11 @@ void reselect_files(const char* selections) {
         }
         if (!found)   missing_count++;
     }
-    //printf("Missing count is %d\n", missing_count);
-    if (missing_count) {
-        fl_alert("One or more selected items have been either moved or deleted!\n");
-    }
 }
 
 void sync_gui_with_filesystem(int try_to_reselect) {
     //printf("Sync-ing GUI with filesystem...\n"); fflush(0);
-    int lpos = MainWnd_p->list_p->position();
+    int lpos = MainWnd_p->list_p->vposition();
     MainWnd_p->set_titles();
     char* selections_str = NULL;
     if (try_to_reselect)   {
@@ -6045,7 +6370,7 @@ void sync_gui_with_filesystem(int try_to_reselect) {
         reselect_files(selections_str);
         free(selections_str);
     }
-    MainWnd_p->list_p->position(lpos);
+    MainWnd_p->list_p->vposition(lpos);
     MainWnd_p->update_btnbar();
 }
 
@@ -6385,7 +6710,7 @@ int handle_global_keys(int e) {
                 return 1;
             }
             else if (alt_active && (key == 't')) {
-                system("aterm &");
+                system("xterm &");
                 return 1;
             }
             else if (key == FL_Delete) {
@@ -6464,7 +6789,7 @@ void configure_colors(void)
 int main(int argc, char** argv) 
 {
     int a = 1;
-    char fullfilename[MAXFFULLPATHLEN] = {0};
+    //char fullfilename[MAXFFULLPATHLEN] = {0};
 
     int i;
     Fl::args(argc, argv, i);
@@ -6500,29 +6825,17 @@ int main(int argc, char** argv)
     Root_fi_p->expanded = 1;
 
     build_tree_for_branch(Loc1Path_str, Root_fi_p, Loc1Path_str, &Loc1_fi_p);
+    struct stat dummy;
     if (!strcmp(Loc2Label_str, "TCE")) {
-		struct stat dummy;
-        // Try to get TCE dir location
-        FILE* fp = fopen("/opt/.tce_dir", "r");
-        if (fp) {
-            if (fgets(fullfilename, MAXFFULLPATHLEN, fp)) {
-                strnzcpy(Loc2Path_str, fullfilename, MAXFPATHLEN);
-                if (Loc2Path_str[strlen(Loc2Path_str) - 1] == '\n') {
-                    Loc2Path_str[strlen(Loc2Path_str) - 1] = '\0';
-                }
-            }
-        }
-        else if (!stat("/etc/sysconfig/tcedir", &dummy)) {
+        if (!stat("/etc/sysconfig/tcedir", &dummy)) {
 			strnzcpy(Loc2Path_str, "/etc/sysconfig/tcedir", MAXFPATHLEN);
 		}
-        else if (!stat("/tmp/tce", &dummy)) {
-			strnzcpy(Loc2Path_str, "/tmp/tce", MAXFPATHLEN);
-		} 
-		// else ... maybe got Loc2Path_str defined in .fluff.conf file
     }
-    if (strlen(Loc2Path_str)) {
-        build_tree_for_branch(Loc2Path_str, Root_fi_p, Loc2Path_str, &Loc2_fi_p);
-    }
+    if (!strlen(Loc2Path_str)) {
+		strnzcpy(Loc2Path_str, "/opt", MAXFPATHLEN);  // let's just use /opt
+		MainWnd_p->loc2_btn_p->label("/opt");
+	}	
+    build_tree_for_branch(Loc2Path_str, Root_fi_p, Loc2Path_str, &Loc2_fi_p);
 
     if (argc > 1) { 
         strnzcpy(MainWnd_p->path, argv[a], MAXFFULLPATHLEN);
@@ -6539,8 +6852,8 @@ int main(int argc, char** argv)
     }
 
 
-    VisitedDir[0] = Root_fi_p;
-    VisitedDirs = 0;
+    VisitedDir[0] = MainWnd_p->seldir_fi_p;
+    VisitedDirs = 1;
 
     Fl::visual(FL_DOUBLE|FL_INDEX);
     MainWnd_p->show(argc, argv);
@@ -6549,10 +6862,31 @@ int main(int argc, char** argv)
     MainWnd_p->list_p->populate(MainWnd_p->seldir_fi_p);
     MainWnd_p->tree_p->populate();
     
+    const char* iconfilepath1 = {"/usr/local/share/pixmaps/fluff.png"};
+    const char* iconfilepath2 = {"/usr/local/share/pixmaps/core.png"};
+    const char* iconfilepath = NULL;
+    Fl_Box* icon_p = NULL;
+    Fl_PNG_Image* icon_img_p = NULL;
+    
+    if (access(iconfilepath1, F_OK) == 0) {
+		iconfilepath = iconfilepath1;
+	}
+	else if (access(iconfilepath2, F_OK) == 0) {
+		iconfilepath = iconfilepath2;
+	}
+	if (iconfilepath) {
+		icon_p = (Fl_Box*)fl_message_icon();
+		icon_p->label("");
+		icon_p->align(FL_ALIGN_IMAGE_BACKDROP);
+		icon_img_p = new Fl_PNG_Image(iconfilepath);
+		icon_p->image(icon_img_p);
+	}
+    
     MainWnd_p->set_titles();
     if (MainWnd_p->seldir_fi_p) {
-        MainWnd_p->pathhist_menu_p->add(MainWnd_p->seldir_fi_p->fullpath);
-        MainWnd_p->pathhist_menu_p->label(MainWnd_p->seldir_fi_p->fullpath);
+		switch_directory(MainWnd_p->seldir_fi_p);
+        //MainWnd_p->pathhist_menu_p->add(MainWnd_p->seldir_fi_p->fullpath);
+        //MainWnd_p->pathhist_menu_p->label(MainWnd_p->seldir_fi_p->fullpath);
     }    
     MainWnd_p->last_click_browser = LASTCLICK_IN_TREE;
 

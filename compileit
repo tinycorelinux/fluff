@@ -17,12 +17,12 @@ PREFIX="/usr/local"
 DESTDIR="$PACKAGEDIR/$PREFIX"
 SRCDIR="src"
 
-OPTIMIZE="-Os -flto"
+OPTIMIZE="-Os"
 SYMBOLS="-g"
 
 TOOLCHAIN="compiletc sstrip submitqc"
-BUILD_DEPS="fltk-1.3-dev"
-PACKAGE_DEPS="fltk-1.3"
+BUILD_DEPS="fltk-1.4-dev"
+PACKAGE_DEPS="fltk-1.4"
 
 GDEBUG="No"
 # Uncomment the next line to compile a version that can be run under gdb.
@@ -32,7 +32,7 @@ if [ "$GDEBUG" == "Debug" ]
 then
 # -flto gets removed because it interferes with gdb being able to display
 # code listings.
-	OPTIMIZE="-O0 -ggdb"
+	OPTIMIZE="-g"
 fi
 
 
@@ -80,11 +80,15 @@ cd "$STARTDIR/$SRCDIR"
 
 # Build "$PROGRAM"
 #gcc  -march=i486 -mtune=i686 "$OPTIMIZE" -pipe -Wall -Wextra -c "$PROGRAM".c "$SYMBOLS" 
-gcc $CXXFLAGS -std=c++03 -Wno-unused-parameter -Wno-missing-field-initializers -c "$PROGRAM".cpp
+#gcc $CXXFLAGS -std=c++03 -Wno-unused-parameter -Wno-missing-field-initializers -c "$PROGRAM".cpp
+#g++ -mtune=generic -Os -pipe -Wall -Wextra -fno-exceptions -fno-rtti -std=c++03 -Wno-unused-parameter -Wno-missing-field-initializers -c fluff.cpp
+g++ -mtune=generic "$OPTIMIZE" -pipe -Wall -Wextra -fno-exceptions -fno-rtti -std=c++03 -Wno-unused-parameter -Wno-missing-field-initializers -c fluff.cpp
+
 
 # Link "$PROGRAM"
 #gcc -I. -L. "$PROGRAM".o -o "$PROGRAM" "$SYMBOLS" "$OPTIMIZE" -lX11 -lXfixes -T/usr/local/lib/ldscripts/elf_i386.xbn
-gcc $LDFLAGS "$PROGRAM".o -o "$PROGRAM" -L/usr/lib -lfltk -lfltk_images -lfltk_forms -lpng -lstdc++
+#gcc $LDFLAGS "$PROGRAM".o -o "$PROGRAM" -L/usr/lib -lfltk -lfltk_images -lfltk_forms -lpng -lstdc++
+g++ -Wl,-T/usr/local/lib/ldscripts/elf_x86_64.xbn fluff.o -o fluff -L/usr/local/lib -lfltk -lfltk_images -lfltk_forms -lpng -lstdc++
 
 size "$PROGRAM".o "$PROGRAM"
 ls -l "$PROGRAM"
@@ -123,6 +127,7 @@ cp "$STARTDIR/$SRCDIR/$PROGRAM.png" "$DESTDIR/share/pixmaps"
 # Update version number and date in the help file.
 DATE=`date '+%b %d, %Y'`
 VERSION="`grep "#define APP_VER" $STARTDIR/$SRCDIR/fluff.cpp | cut -d' ' -f3 | tr -d '"'`"
+echo "Version is " ${VERSION}
 sed -i "s|.*<p>Version.*|<p>Version $VERSION, $DATE</p>|" "$DESTDIR/share/doc/$PROGRAM/$PROGRAM"_"help.htm"
 
 # Create .tcz, .md5,txt, and .list files.
@@ -153,7 +158,7 @@ Size:		$SIZE
 Extension_by:	Michael A. Losh
 Tags:		File Manager fm
 Comments:	Full Version including icon and
-		.desktop file, suitable for Tiny Core 3.7 and later.
+		.desktop file, suitable for Tiny Core Linux.
 		Fluff is a fast, light utility for files.  Fluff uses
 		the FLTK user interface library, which makes it
 		especially efficient on TinyCore Linux. The source code
@@ -163,7 +168,6 @@ Comments:	Full Version including icon and
 		automatic configurable program associations; trashbin with
 		restore; file renaming; file property editing; and more!
 		Less than 150 KB installed.
-
 
 		Built with:
 		CFLAGS=$CFLAGS
@@ -175,7 +179,9 @@ Change-log:	2011/05/13 (Initial release as extension)
 		2014/03/19 v1.0.7 compiled for corepure64-v5.x (coreplayer2)
 		2020/01/30 v1.0.7 compiled for tc-11.x and fltk-1.3.5 (gnuser)
 		2020/02/07 updated 1.0.7 -> 1.0.8 (gnuser)
-Current:	$DATE $VERSION Reverted previous pointer changes, see fluff.cpp
+		2022/02/28 v1.0.9 addressed some build warnings, reverted some changes (Rich)
+		2025/04/16 v1.1.6 - Juanito & Michael A. Losh - FLTK 1.4 updates, new nav buttons, string buffer size fixes
+Current:	$DATE $VERSION see fluff.cpp for more detailed update info
 " > $PROGRAM.tcz.info
 
 # Check the newly created extension files for errors.
