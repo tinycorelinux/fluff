@@ -1,14 +1,17 @@
 // Fluff  -- A fast, light utility for files 
 // See About_text below for copyright and distribution license
 
-#define APP_VER "1.1.6" // Last update 2025-04-07
+#define APP_VER "1.1.7" // Last update 2025-05-03
 
-/* Version 1.1.6 updated 2025-04-07 by Michael Losh
+/* Version 1.1.7 updated 2025-05-03 by Michael Losh and Juanito
+ * Update to 'compileit' build script flags for other platforms
+ * Aliased vposition func name to position to support FLTK 1.3 needed for 32-bit x86 version. 
+ 
+ * Version 1.1.6 updated 2025-04-07 by Michael Losh
  * Fix to reset scroll to first file when revisiting directories
  * (otherwise, current scroll position may not allow any files to be seen
  *  after directory changes)
  * Moved config file location to ~/.config/fluff.conf
- * 
 
  * Version 1.1.5 updated 2025-03-29 by Michael Losh
  * Up, Back, FWD directory location buttons added to toolbar, reworked directory history management
@@ -282,6 +285,10 @@ void btnbar_go_bk_cb(void);
 void btnbar_go_fw_cb(void);
 void btnbar_go_up_cb(void);
 
+//s#define i686
+#ifdef i686
+#define vposition position
+#endif
 
 class Dir_Tree_Browser : public Fl_Select_Browser {
     protected:
@@ -300,6 +307,7 @@ class Dir_Tree_Browser : public Fl_Select_Browser {
     int top_visible_line(void); 
     void populate(void);
 };
+
 
 class File_Detail_List_Browser : public Fl_Multi_Browser {
     protected:
@@ -736,7 +744,7 @@ Fl_Menu_Item file_right_click_menu[20] = {
 
 // File list column widths in pixels
 //                name, type, size, date, perms, own 
-int ColWidths[] = {150,  42,   64,   84,  74,  0};
+int ColWidths[] = {180,  96,   88,   140,  76,  0};
 
 // File type/hint list    ftype, htype, pattern, offset 
 int FileTypeColWidths[] = {112,  140,   100,      0,    0};
@@ -972,7 +980,7 @@ const char* name_str_from_id(name_id_item* listroot_p, int id)
 // but later size and loc recorded in fluff.conf for recall
 int MainXPos =  15;
 int MainYPos =  40;
-int MainWide = 624;
+int MainWide = 760;
 int MainHigh = 500;
 int DirTreeWide = MainWide * 21 / 100;
 
@@ -2014,12 +2022,12 @@ void File_Detail_List_Browser::populate(file_item* dir_fi_p)
 
     int line = 1;
     const char* bg_str = "";
-    sprintf(fi_str, "@b@c%s%s@.filename\t"
-                    "@b@c%s%s@.type\t"
-                    "@b@c%s%s@.size\t"
-                    "@b@c%s%s@.date\t"
-                    "@b@c%s%s@.perm.\t"
-                    "@b@c%s%s@.owner", 
+    sprintf(fi_str, "@b@c%s%s@.   filename\t"
+                    "@b@c%s%s@.   type\t"
+                    "@b@c%s%s@.   size\t"
+                    "@b@c%s%s@.   date\t"
+                    "@b@c%s%s@.   perm.\t"
+                    "@b@c%s%s@.   owner", 
                     BtnColor_str, TextColor_str, 
                     BtnColor_str, TextColor_str, 
                     BtnColor_str, TextColor_str, 

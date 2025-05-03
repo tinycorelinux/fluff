@@ -18,7 +18,8 @@ DESTDIR="$PACKAGEDIR/$PREFIX"
 SRCDIR="src"
 
 OPTIMIZE="-Os"
-SYMBOLS="-g"
+SYMBOLS=""
+FLTO="-flto"
 
 TOOLCHAIN="compiletc sstrip submitqc"
 BUILD_DEPS="fltk-1.4-dev"
@@ -32,36 +33,33 @@ if [ "$GDEBUG" == "Debug" ]
 then
 # -flto gets removed because it interferes with gdb being able to display
 # code listings.
-	OPTIMIZE="-g"
+	OPTIMIZE=""
+	SYMBOLS="-ggdb"
+	FLTO=""
 fi
-
 
 PROCESSOR_TYPE=`uname -m`
 echo "$PROCESSOR_TYPE detected."
 
 case "$PROCESSOR_TYPE" in
         i686)
-        CFLAGS="-fuse-linker-plugin -march=i486 -mtune=i686 $OPTIMIZE $SYMBOLS -pipe -Wall -Wextra -fno-plt"
-        CXXFLAGS="-fuse-linker-plugin -march=i486 -mtune=i686 $OPTIMIZE $SYMBOLS -pipe -Wall -Wextra -fno-exceptions -fno-rtti"
+        CXXFLAGS="$FLTO -march=i486 -mtune=i686 $OPTIMIZE $SYMBOLS -pipe -Wall -Wextra -fno-exceptions -fno-rtti -Di686"
         LDFLAGS="-Wl,-T/usr/local/lib/ldscripts/elf_i386.xbn"
         ;;
 
         x86_64)
-        CFLAGS="-fuse-linker-plugin -mtune=generic $OPTIMIZE $SYMBOLS -pipe -Wall -Wextra -fno-plt"
-        CXXFLAGS="-fuse-linker-plugin -mtune=generic $OPTIMIZE $SYMBOLS -pipe -Wall -Wextra -fno-exceptions -fno-rtti"
+        CXXFLAGS="$FLTO -mtune=generic $OPTIMIZE $SYMBOLS -pipe -Wall -Wextra -fno-exceptions -fno-rtti"
         LDFLAGS="-Wl,-T/usr/local/lib/ldscripts/elf_x86_64.xbn"
         ;;
 
         armv*)
-        CFLAGS="-march=armv6zk -mtune=arm1176jzf-s -mfpu=vfp $OPTIMIZE $SYMBOLS -pipe -Wall -Wextra"
-        CXXFLAGS="-march=armv6zk -mtune=arm1176jzf-s -mfpu=vfp $OPTIMIZE $SYMBOLS -pipe -Wall -Wextra -fno-exceptions -fno-rtti"
-        LDFLAGS="-Wl,-O1"
+        CXXFLAGS="$FLTO -march=armv6zk -mtune=arm1176jzf-s -mfpu=vfp $OPTIMIZE $SYMBOLS -pipe -Wall -Wextra -fno-exceptions -fno-rtti"
+        LDFLAGS=""
         ;;
 
         aarch64)
-        CFLAGS="-march=armv8-a+crc -mtune=cortex-a72 $OPTIMIZE $SYMBOLS -pipe -Wall -Wextra"
-        CXXFLAGS="-march=armv8-a+crc -mtune=cortex-a72 $OPTIMIZE $SYMBOLS -pipe -Wall -Wextra -fno-exceptions -fno-rtti"
-        LDFLAGS="-Wl,-O1"
+        CXXFLAGS="$FLTO -march=armv8-a+crc -mtune=cortex-a72 $OPTIMIZE $SYMBOLS -pipe -Wall -Wextra -fno-exceptions -fno-rtti"
+        LDFLAGS=""
         ;;
 
         *)
@@ -71,24 +69,26 @@ case "$PROCESSOR_TYPE" in
 esac
 
 # Download packages required for compiling, filter out success messages.
-tce-load -w "$TOOLCHAIN $BUILD_DEPS" 2>&1 | grep -v "already downloaded"
+#tce-load -w "$TOOLCHAIN $BUILD_DEPS" 2>&1 | grep -v "already downloaded"
 
 # Install packages required for compiling, filter out success messages.
-tce-load -i "$TOOLCHAIN $BUILD_DEPS" 2>&1 | grep -v "already installed"
+#tce-load -i "$TOOLCHAIN $BUILD_DEPS" 2>&1 | grep -v "already installed"
 
 cd "$STARTDIR/$SRCDIR"
 
-# Build "$PROGRAM"
-#gcc  -march=i486 -mtune=i686 "$OPTIMIZE" -pipe -Wall -Wextra -c "$PROGRAM".c "$SYMBOLS" 
-#gcc $CXXFLAGS -std=c++03 -Wno-unused-parameter -Wno-missing-field-initializers -c "$PROGRAM".cpp
-#g++ -mtune=generic -Os -pipe -Wall -Wextra -fno-exceptions -fno-rtti -std=c++03 -Wno-unused-parameter -Wno-missing-field-initializers -c fluff.cpp
-g++ -mtune=generic "$OPTIMIZE" -pipe -Wall -Wextra -fno-exceptions -fno-rtti -std=c++03 -Wno-unused-parameter -Wno-missing-field-initializers -c fluff.cpp
+CXXFLAGS="$CXXFLAGS -std=c++03 -Wno-unused-parameter -Wno-missing-field-initializers -c "$PROGRAM".cpp"
 
+echo -e "\nCXXFLAGS=$CXXFLAGS\n"
+
+# Build "$PROGRAM"
+g++ $CXXFLAGS
+
+LDFLAGS="$LDFLAGS "$PROGRAM".o -o "$PROGRAM" -L/usr/lib -lfltk -lfltk_images -lfltk_forms -lpng -lstdc++"
+
+echo -e "LDFLAGS=$LDFLAGS\n"
 
 # Link "$PROGRAM"
-#gcc -I. -L. "$PROGRAM".o -o "$PROGRAM" "$SYMBOLS" "$OPTIMIZE" -lX11 -lXfixes -T/usr/local/lib/ldscripts/elf_i386.xbn
-#gcc $LDFLAGS "$PROGRAM".o -o "$PROGRAM" -L/usr/lib -lfltk -lfltk_images -lfltk_forms -lpng -lstdc++
-g++ -Wl,-T/usr/local/lib/ldscripts/elf_x86_64.xbn fluff.o -o fluff -L/usr/local/lib -lfltk -lfltk_images -lfltk_forms -lpng -lstdc++
+g++ $LDFLAGS
 
 size "$PROGRAM".o "$PROGRAM"
 ls -l "$PROGRAM"
@@ -191,7 +191,7 @@ submitqc --libs 2>&1 > submitqc.txt
 tar -czf "$PROGRAM".tar.gz "$PROGRAM".tc*
 
 # Create archive of the source package.
-tar -czf "$PROGRAM"-source-"$VERSION".tar.gz --exclude "*.o" ../"$PROGRAM"/"$SRCDIR" ../"$PROGRAM"/Compile"$PROGRAM"
+tar -czf "$PROGRAM"-source-"$VERSION".tar.gz --exclude "*.o" ../"$PROGRAM"/"$SRCDIR" ../"$PROGRAM"/compileit
 
 # Tar the package archive and build script. Include processor type as part of archive name.
 tar -czf "$PROGRAM-$PROCESSOR_TYPE".tar.gz --exclude "$PROGRAM-$PROCESSOR_TYPE*" *.tar.gz
