@@ -27,3 +27,4 @@ related files for TinyCore Linux.
 	2020/02/07 updated 1.0.7 -> 1.0.8 (gnuser)
 	2022/02/28 v1.0.9 addressed some build warnings, reverted some changes (Rich)
 	2025/04/16 v1.1.6 - Juanito & Michael A. Losh - FLTK 1.4 updates, new nav buttons, string buffer size fixes
+	2025/05/03 v1.1.7 - Juanito & Michael A. Losh - Build updates for more platforms; resolve FLTK1.3 issue for i686 build
