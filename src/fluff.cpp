@@ -1124,7 +1124,7 @@ void save_configuration(void)
         fprintf(cfgf, "# (type label), (action label), (cmd spec)\n");
         int assoc = 0;
 
-        for(assoc = 0 ; assoc < Associations; assoc++) {
+        for (assoc = 0 ; assoc < Associations; assoc++) {
             fprintf(cfgf, "%s, %s, %s\n", 
                     FiletypeName_str[Association[assoc].filetype], 
                     Association[assoc].action_label, 
@@ -1557,7 +1557,7 @@ int file_item::guess_filetype(void) {
             if (fth_p->hintmethod == HINTMETHOD_BYTES || fth_p->hintmethod == HINTMETHOD_STRING ) { 
                 //printf"checking file for pattern '%s' at offset %d...\n",
                 //        fth_p->pat, fth_p->offset); fflush(0);
-                if(!strncmp(imbyte+(fth_p->offset), fth_p->pat, patlen)) {
+                if (!strncmp(imbyte+(fth_p->offset), fth_p->pat, patlen)) {
                     filetype = fth_p->filetype;
                     //printf"  yes, it's a '%s'\n", FiletypeName_str[filetype]); fflush(0);
                     break;
@@ -1759,7 +1759,7 @@ int Fl_DND_Box::handle(int e)
             // Instead it will be executed by the FLTK main-loop
             // once we have finished handling the DND event.
             // This allows caller to popup a window or change widget focus.
-            if(callback() && ((when() & FL_WHEN_RELEASE) || (when() & FL_WHEN_CHANGED)))
+            if (callback() && ((when() & FL_WHEN_RELEASE) || (when() & FL_WHEN_CHANGED)))
                 Fl::add_timeout(0.0, Fl_DND_Box::callback_deferred, (void*)this);
             return 1;
     }
@@ -2038,7 +2038,7 @@ void File_Detail_List_Browser::populate(file_item* dir_fi_p)
                     
     add(fi_str, (void*)0);
     int i = 1;
-    while(i <= br_p->size()) {
+    while (i <= br_p->size()) {
         file_p = (file_item*)br_p->data(i++);
         if (    MainWnd_p->showingall 
             ||  file_p->name[0] != '.'
@@ -2665,7 +2665,7 @@ void Manage_Filetypes_Window::show_hint(void)
             embed_str_type_chk_p->clear();
             embed_data_type_chk_p->set();
             extension_type_chk_p->clear();
-            for(b = 0; b < hint_p->patlen; b++) {
+            for (b = 0; b < hint_p->patlen; b++) {
                 char hexnum_str[4];
                 sprintf(hexnum_str, "%02X ", (unsigned char)(hint_p->pat[b]));
                 strcat(match_bytes_str, hexnum_str);
@@ -2837,7 +2837,7 @@ void MFTW__control_cb(Fl_Widget* thewidget_p, long ctrl_id)
                                 *op++ = (unsigned char)v;
                                 //printf("Byte #%d is 0x%02X\n", l, v);
                                 l++;
-                                while(*ip == ' ') ip++;
+                                while (*ip == ' ') ip++;
                                 v = 0;
                             }
                             else if (*ip >= '0' && *ip <= '9') {
@@ -3727,7 +3727,7 @@ int Fluff_Window::handle(int e) {
             else if (key == FL_Escape) {             
                 // eat the event, don't close app!
                 // unselect everything
-                for(int i = 1; i <= list_p->size(); i++) {
+                for (int i = 1; i <= list_p->size(); i++) {
                     list_p->select(i, 0);
                 }
                 MainWnd_p->sel_fi_p = NULL;
@@ -3980,7 +3980,7 @@ void perform_file_trash(file_item* fi_p)
     strclr(newname);
     char* p = fi_p->fullpath;
     char* n = newname;
-    while(*p) {
+    while (*p) {
         if (*p == '/') {
             *n++ = '~';
             p++;
@@ -4931,7 +4931,7 @@ void File_Props_Window::show_file(file_item* fileitem_p)
             sscanf(filecount_str, "incomplete?: %d; filecount: %d; space: %s", 
                     &incomplete, &files, diskspace_str);
             char *p = diskspace_str;
-            while(*p && *p != ' ') p++;  
+            while (*p && *p != ' ') p++;  
             if (*p == ' ') *p = '\0';   // clip string at first space
             sprintf(dirstatus_str, "Dir contents: %s%d file%s, about %s  (links %s)",
                     incomplete ? "? at least " : "",
@@ -5129,7 +5129,7 @@ void create_clone_name(file_item* fi_p, char* buf) {
     char fullpath[MAXFFULLPATHLEN+128];
     int n = 1;
     struct stat64 s;
-    while(1) {
+    while (1) {
         sprintf(candidate, "%s(copy%d)", fi_p->name, n);
         sprintf(fullpath, "%s%s", fi_p->path, candidate);
         //printf("Checking if '%s' is a good clone name\n", fullpath); fflush(0);
@@ -5419,13 +5419,13 @@ void perform_file_copy_or_move(fileop_enum oper, file_item* dir_fi_p, int using_
         MainWnd_p->init_progress(0, "file", oper_str, cnt);
         file_item temp_fi;
         char* c = MarkedFileItems_sz_p;
-        while(*c && t < cnt) {
+        while (*c && t < cnt) {
             char* f = temp_fi.fullpath;
             char* p = temp_fi.path;
-            while(*c && strncmp(c, "file://", 7)) c++;
-            //printf("REMAINING IN COPY:\n%s\n=============\n", c); fflush(0);
+            while (*c && strncmp(c, "file://", 7)) c++;
+            // printf("REMAINING IN COPY:\n%s\n=============\n", c); fflush(0);
             c += 7;
-            while(*c && *c != '\n') {
+            while (*c && *c != '\n') {
                 *f++ = *c;
                 *p++ = *c++;
             }
@@ -5434,9 +5434,9 @@ void perform_file_copy_or_move(fileop_enum oper, file_item* dir_fi_p, int using_
             c++;
             char* n = temp_fi.name;
             char* l = p - 1;
-            while(*l != '/')  l--;
+            while (*l != '/')  l--;
             *l++ = '\0'; 
-            while(*l  && *l != '\n') {
+            while (*l  && *l != '\n') {
                 *n++ = *l++;
             }
             *n = '\0';
@@ -5535,7 +5535,7 @@ void perform_select_all(void) {
     File_Detail_List_Browser* mb_p = (File_Detail_List_Browser*)MainWnd_p->list_p;
     //printf("Select All...\n"); fflush(0);
     file_item* fi_p = NULL;
-    for(int i = 2; i <= mb_p->size(); i++) {
+    for (int i = 2; i <= mb_p->size(); i++) {
         fi_p = (file_item*)mb_p->data(i);
         if (fi_p && strcmp(fi_p->name, ".") && strcmp(fi_p->name, "..")) { 
             //printf("Selecting list item '%s'\n", fi_p->name); fflush(0);
@@ -5617,7 +5617,7 @@ static void FileMenuCB(Fl_Widget* window_p, void *userdata)
                         char* p = fullpath;
                         char* n = sel_fi_p->name;
                         
-                        while(*n) {
+                        while (*n) {
                             //printf("name char %c, new fullpath is '%s'\n", *n, fullpath);
                             if (*n == '~') {
                                 *p++ = '/';
@@ -5796,7 +5796,7 @@ int get_child_file_items(file_item* fi_p)
                 added = 1;
             }
             else {
-                while(p) {
+                while (p) {
                     // Always build the file_item tree in inode order, maybe view parts of it in different order
                     if (new_item_sorts_before_existing_item(new_fi_p, p, SORTSPEC_NAME_ASC)) {
                         //printf("It goes before current item\n");
@@ -5867,7 +5867,7 @@ int build_tree_for_branch(char* path, file_item* root_fi_p, char* targpath, file
     }
     //printf ("Building tree/branch '%s' from node at %s%s/\n", path, root_fi_p->path, root_fi_p->name);
     if (*p == '/') p++;
-    if(*p) {
+    if (*p) {
         n = name;
         while (*p && *p != '/') { 
             *n++ = *p++;
@@ -5930,7 +5930,7 @@ void prune_single_file_item(file_item* fi_p)
         }
         else {
             prev_sib_p = parent_p->child_fi_p;
-            while(prev_sib_p->next_fi_p && (prev_sib_p->next_fi_p != fi_p)) {
+            while (prev_sib_p->next_fi_p && (prev_sib_p->next_fi_p != fi_p)) {
                 prev_sib_p = prev_sib_p->next_fi_p;
                 //printf("   prev. sib. is now '%s'\n", prev_sib_p->name); fflush(0);
             }
@@ -6085,7 +6085,7 @@ void switch_directory(file_item* new_dir_fi_p, bool is_fwd)
         //printf("switch_dir before filling menu: oldest %d, newest %d, dirs %d\n",
         //        VisitedDirCur, VisitedDirNewest, VisitedDirs); fflush(0);
         
-        //~ for(unsigned int i = (VisitedDirNewest - 1) & (VISITED_DIR_MAX-1) ;
+        //~ for (unsigned int i = (VisitedDirNewest - 1) & (VISITED_DIR_MAX-1) ;
                 //~ i != VisitedDirCur ;
                 //~ i = (i - 1) & (VISITED_DIR_MAX-1)) {
             //~ MainWnd_p->pathhist_menu_p->add(VisitedDir[i]->fullpath);
@@ -6202,7 +6202,7 @@ void setup_dir_watch(file_item* dir_fi_p) {
     // See if requested directory is on no-watch list
     int n = 0;
     const char* no_watch_dirname = dir_no_watch_list[n];
-    while(*no_watch_dirname) {
+    while (*no_watch_dirname) {
         //printf("Checking if '%s' matches item '%s' from no-watch liist\n", 
         //        dir_fi_p->fullpath, no_watch_dirname);
         if (!strncmp(dir_fi_p->fullpath, no_watch_dirname, strlen(no_watch_dirname))) {
@@ -6452,9 +6452,9 @@ int marked_file_items(const char* urls)
 {
     if (!urls) return 0;
     int cnt = 0;
-    for(const char *c = urls; *c != '\0'; ++c)
+    for (const char *c = urls; *c != '\0'; ++c)
     {
-        if(*c == '\n')
+        if (*c == '\n')
             cnt++;
     }
     return cnt;
@@ -6740,7 +6740,7 @@ int handle_global_keys(int e) {
             else if (key == FL_Escape) {             
                 // eat the event, don't close app!
                 // unselect everything
-                for(int i = 1; i <= p->list_p->size(); i++) {
+                for (int i = 1; i <= p->list_p->size(); i++) {
                     p->list_p->select(i, 0);
                 }
                 MainWnd_p->sel_fi_p = NULL;
@@ -6902,7 +6902,7 @@ int main(int argc, char** argv)
 
     Running = 1;
     int sized = 0;
-    while(Running && (0 <= Fl::wait(0.5))) {
+    while (Running && (0 <= Fl::wait(0.5))) {
         if (MainWnd_p->pathhist_menu_p->x() > 0 && !sized) {    
             MainWnd_p->adjust_pathhist_menu_size();
             MainWnd_p->redraw();
